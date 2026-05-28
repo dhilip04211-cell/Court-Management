@@ -28,13 +28,8 @@ export default function Examiner() {
     }
   });
   const [db, setDb] = useState(null);
-  const [loading, setLoading] = useState(() => {
-    try {
-      return !!localStorage.getItem("goog_tok");
-    } catch {
-      return false;
-    }
-  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("entry");
   const [themeId, setThemeId] = useState(() => {
     try {
@@ -141,15 +136,18 @@ export default function Examiner() {
     setTok(null);
     setTokExpiry(0);
     setDb(null);
+    setError(null);
   }
 
   async function fetchAll(token) {
     setLoading(true);
+    setError(null);
     try {
       const data = await loadAllData(token);
       setDb(data);
     } catch (e) {
       console.error("Load error:", e);
+      setError("Failed to load data. Check network / permissions or reload.");
     }
     setLoading(false);
   }
@@ -183,13 +181,13 @@ export default function Examiner() {
         </div>
       </div>
 
-      {loading ? (
+      {loading || (!db && !error) ? (
         <div className="spin-wrap">
           <div className="spin"></div> Loading data from Google Sheets...
         </div>
-      ) : !db ? (
+      ) : error ? (
         <div className="msg-err" style={{ margin: "20px auto", maxWidth: "400px", textAlign: "center" }}>
-          Failed to load data. Check network / permissions or reload.
+          {error}
         </div>
       ) : (
         <>
