@@ -206,10 +206,18 @@ export async function loadAllData(tok, smap) {
  * append to bottom → read once → batch rewrite sl
  */
 export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existingRows) {
-  const appended = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [
-    ["", newCr, newSec, newDr]
-  ]);
-  if (!appended) return { ok: false, ri: -1 };
+  const appendRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SID.fir}/values/${encodeURIComponent(tabName + "!A:D")}:append?valueInputOption=USER_ENTERED`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ values: [["", newCr, newSec, newDr]] }),
+    }
+  );
+  const appendJson = await appendRes.json();
+  console.log("APPEND STATUS:", appendRes.status, appendJson);
+
+  if (!appendRes.ok) return { ok: false, ri: -1 };
 
   const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
   const dataRows = [];
