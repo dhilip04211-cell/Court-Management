@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SMAP } from "../constants/config.js";
-import { isValidFIRCell, parseFIR } from "../utils/helpers.js";
-import { sheetsGet, sheetsUpdate } from "../utils/sheets.js";
+import { parseFIR } from "../utils/helpers.js";
+import { renumberFIRSheet } from "../utils/sheets.js";
 import StationYearMatrix from "../components/StationYearMatrix.jsx";
 
 export default function AbstractTab({ db, tok, setDb }) {
@@ -73,21 +73,9 @@ export default function AbstractTab({ db, tok, setDb }) {
     setRenumMsg({ type: "loading", text: "Renumbering all sheets…" });
     let totalFixed = 0;
     for (const s of SMAP) {
-      const rawRows = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
-      let slCounter = 1;
-      for (let i = 0; i < rawRows.length; i++) {
-        const b = (rawRows[i][1] || "").toString().trim();
-        if (isValidFIRCell(b)) {
-          const currentSl = (rawRows[i][0] || "").toString().trim();
-          if (currentSl !== String(slCounter)) {
-            await sheetsUpdate(tok, SID.fir, `${s.sh}!A${i + 1}`, [[slCounter]]);
-            totalFixed++;
-          }
-          slCounter++;
-        }
-      }
+      totalFixed += await renumberFIRSheet(tok, s.sh);
     }
-    setRenumMsg({ type: "ok", text: `✓ Fixed ${totalFixed} serial number(s) across all sheets.` });
+    setRenumMsg({ type: "ok", text: `✓ Renumbered ${totalFixed} row(s) across all sheets.` });
     setTimeout(() => setRenumMsg(null), 3000);
   }
 
