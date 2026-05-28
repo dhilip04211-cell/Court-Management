@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { SMAP, SID } from "../constants/config.js";
-import { firMatch, firSortKey, autoFormatDate } from "../utils/helpers.js";
+import { firMatch, firSortKey } from "../utils/helpers.js";
 import { sheetsDeleteRow, insertFIRSorted, updateFIRRow } from "../utils/sheets.js";
-import FIRNumPad from "../components/FIRNumPad.jsx";
-import DateNumPad from "../components/DateNumPad.jsx";
 import SectionBuilder from "../components/SectionBuilder.jsx";
 
 export default function EntryTab({ db, setDb, tok }) {
@@ -138,7 +136,10 @@ export default function EntryTab({ db, setDb, tok }) {
 
         <div className="sec-divider">Step 1 — FIR Number & Year</div>
         <div className="numpad-row" style={{marginBottom:12}}>
-          <FIRNumPad value={fn} onChange={setFn}/>
+          <div style={{flex:"1 1 130px",minWidth:0}}>
+            <label className="lbl">FIR Number</label>
+            <input className="inp mono" type="tel" inputMode="numeric" value={fn} onChange={e=>setFn(e.target.value)} placeholder="e.g. 561" />
+          </div>
           <div style={{flex:"1 1 130px",minWidth:0}}>
             <div className="lbl" style={{marginBottom:4}}>Year</div>
             <div className="val-display mono" style={{marginBottom:6}}>{yr}</div>
@@ -207,7 +208,14 @@ export default function EntryTab({ db, setDb, tok }) {
           <>
             <div className="sec-divider">Step 4 — Date Received</div>
             <div style={{marginBottom:12}}>
-              <DateNumPad value={dt} onChange={setDt}/>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <div style={{flex:"1 1 260px",minWidth:0}}>
+                  <label className="lbl">Date Received</label>
+                  <input className="inp mono" type="date" value={dt ? (() => { const p=dt.split('.'); if(p.length===3) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; return ""; })() : ""}
+                    onChange={e=>{ const v=e.target.value; if(!v){ setDt(""); return;} const [y,m,d]=v.split('-'); setDt(`${d.padStart(2,'0')}.${m}.${y}`); }} />
+                </div>
+                <div style={{alignSelf:"center",fontSize:11,color:"var(--txt2)"}}>{dt || <span style={{color:"var(--txt3)"}}>—</span>}</div>
+              </div>
             </div>
           </>
         )}
