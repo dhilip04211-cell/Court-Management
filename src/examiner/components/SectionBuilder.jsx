@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { buildSectionString } from "../utils/helpers.js";
 import { ACTS } from "../constants/config.js";
-import { NumPad2 } from "./NumPad2.jsx";
+import NumPad2 from "./NumPad2.jsx";
 
-export function SectionBuilder({ value, onChange }) {
+export default function SectionBuilder({ value, onChange }) {
   const [groups, setGroups] = useState([]);
   const [activeAct, setActiveAct] = useState(null);
   const [mainSec, setMainSec] = useState("");

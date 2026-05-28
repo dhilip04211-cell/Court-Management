@@ -1,4 +1,4 @@
-export function NumPad2({ label, value, onChange, maxLen = 8, withBrackets = false }) {
+export default function NumPad2({ label, value, onChange, maxLen = 8, withBrackets = false }) {
   function tap(ch) {
     if (value.replace(/\D/g, "").length >= maxLen) return;
     onChange(value + ch);

@@ -1,4 +1,4 @@
-export function FIRNumPad({ value, onChange }) {
+export default function FIRNumPad({ value, onChange }) {
   function tap(d) {
     if (value.length >= 6) return;
     onChange(value + d);

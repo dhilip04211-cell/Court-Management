@@ -1,6 +1,6 @@
 import { autoFormatDate } from "../utils/helpers.js";
 
-export function DateNumPad({ value, onChange }) {
+export default function DateNumPad({ value, onChange }) {
   function tapDigit(d) {
     const digits = value.replace(/\D/g, "");
     if (digits.length >= 8) return;
