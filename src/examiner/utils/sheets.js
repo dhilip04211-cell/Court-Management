@@ -1,5 +1,6 @@
 import { isValidFIRCell, parseFIR, firSortKey } from "./helpers.js";
 import { SID } from "../constants/config.js";
+import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
 export async function sheetsGet(tok, sid, range) {
   const r = await fetch(
@@ -127,7 +128,7 @@ export async function loadFIRSheet(tok, tabName) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const a = (r[0] || "").toString().trim();
-    const b = (r[1] || "").toString().trim();
+    const b = normalizeFIRCell((r[1] || "").toString().trim());
     const c = (r[2] || "").toString().trim();
     const d = (r[3] || "").toString().trim();
 

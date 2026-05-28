@@ -7,7 +7,14 @@ export function isValidFIRCell(raw) {
   if (!raw && raw !== 0) return false;
   return /^\d+\/\d{4}$/.test(String(raw).trim());
 }
-
+export function normalizeFIRCell(raw) {
+  if (!raw && raw !== 0) return "";
+  const s = String(raw).trim();
+  if (isValidFIRCell(s)) return s;                   // already good
+  const m = s.match(/^(\d+)(20\d{2})$/);             // e.g. "1232024"
+  if (m) return `${parseInt(m[1], 10)}/${m[2]}`;     // → "123/2024"
+  return s;                                           // unchanged (will still fail isValidFIRCell, row is skipped)
+}
 /**
  * Parse FIR into number and year
  */
