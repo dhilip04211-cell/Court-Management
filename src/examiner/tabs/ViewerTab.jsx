@@ -27,7 +27,14 @@ export default function ViewerTab({ db }) {
 
     const fh = [];
     for (const s of SMAP) {
-      const rows = (db.fir[s.sh] || []).filter(r => firMatch(r.cr, sNum, sYr));
+      const rows = (db.fir[s.sh] || []).filter(r => {
+        // FIX 1: try split-field match first, then combined "num/year" format
+        if (firMatch(r.cr, sNum, sYr)) return true;
+        if (sYr && firMatch(r.cr, `${sNum}/${sYr}`, "")) return true;
+        // also try matching when cr stores just number and year is in r.yr
+        if (sYr && String(r.yr || "").trim() === sYr && firMatch(r.cr, sNum, "")) return true;
+        return false;
+      });
       if (rows.length) fh.push({ s, rows });
     }
 
@@ -90,6 +97,34 @@ export default function ViewerTab({ db }) {
 
   const caseStRows = activeSt ? getRowsForStation(caseRows, activeSt) : [];
   const nvStRows = activeNvSt ? getRowsForStation(nvRows, activeNvSt) : [];
+
+  // FIX 2: check if two station strings loosely match each other
+  function stationsMatch(sta1, sta2) {
+    if (!sta1 || !sta2) return false;
+    const a = sta1.toLowerCase().trim();
+    const b = sta2.toLowerCase().trim();
+    return a === b || a.includes(b) || b.includes(a);
+  }
+
+  // FIX 2: find NV records linked to a FIR entry — must match BOTH crime number AND station
+  function linkedNvForFir(firNum, firStation) {
+    return nvRows.filter(n => {
+      const numOk = firMatch(n.fn, firNum, "");
+      const staOk = stationsMatch(n.sta, firStation);
+      return numOk && staOk;
+    });
+  }
+
+  // FIX 2: find NV records linked to a case row — must match BOTH crime/case number AND station
+  function linkedNvForCase(r) {
+    return nvRows.filter(n => {
+      const caseNumMatch = r.cn && (n.cn || "").trim() === (r.cn || "").trim();
+      const firNumMatch = firMatch(n.fn, String(parseInt(r.fn, 10) || r.fn), "");
+      const numOk = caseNumMatch || firNumMatch;
+      const staOk = stationsMatch(n.sta, r.sta);
+      return numOk && staOk;
+    });
+  }
 
   const firTotal = firHits.reduce((a, b) => a + b.rows.length, 0);
   const totalHits = firTotal + caseRows.length + nvRows.length + cnHits.length;
@@ -188,16 +223,18 @@ export default function ViewerTab({ db }) {
                 const shKey = activeSt.replace("fir::", "");
                 const sObj = SMAP.find(s => s.sh === shKey);
                 const rows = (firHits.find(x => x.s.sh === shKey) || {}).rows || [];
+                const firStationLabel = sObj?.lb || "";
                 return (
                   <div className="vt-panel vt-panel-fir">
                     <div className="vt-panel-heading">
-                      <span className="vt-panel-title">{sObj?.lb}</span>
+                      <span className="vt-panel-title">{firStationLabel}</span>
                       <span className="vt-tag vt-tag-red">FIR Pending</span>
                     </div>
                     <div className="vt-fir-list">
                       {rows.map((r, i) => {
+                        // FIX 2: pass station label so NV matching can filter by it
                         const firNum = String(parseInt(r.cr, 10) || r.cr);
-                        const linkedNv = nvRows.filter(n => firMatch(n.fn, firNum, ""));
+                        const linkedNv = linkedNvForFir(firNum, firStationLabel);
                         return (
                           <div key={i} className="vt-fir-card">
                             <div className="vt-fir-row-top">
@@ -224,7 +261,7 @@ export default function ViewerTab({ db }) {
                                 </div>
                               )}
                             </div>
-                            {/* ── Linked NV records ── */}
+                            {/* FIX 2: NV shown only when crime number + station both match */}
                             {linkedNv.length > 0 && (
                               <div className="vt-fir-nv-block">
                                 <div className="vt-fir-nv-heading">🏷️ Non-Valuable Property</div>
@@ -328,10 +365,8 @@ export default function ViewerTab({ db }) {
                         {srcRows.map((r, i) => {
                           const caseId = `${src}::${r.ri}::${i}`;
                           if (activeCaseId !== caseId) return null;
-                          const relatedNv = nvRows.filter(n =>
-                            (r.cn && (n.cn || "").trim() === (r.cn || "").trim()) ||
-                            firMatch(n.fn, String(parseInt(r.fn, 10) || r.fn), "")
-                          );
+                          // FIX 2: NV must match both crime/case number AND police station
+                          const relatedNv = linkedNvForCase(r);
                           return (
                             <CaseDetail key={caseId} r={r} srcKey={src} relatedNv={relatedNv} />
                           );
@@ -433,10 +468,8 @@ export default function ViewerTab({ db }) {
               {cnHits.map((r, i) => {
                 const cnId = `cnum::${r.ri}::${i}`;
                 if (activeCaseId !== cnId) return null;
-                const relatedNv = nvRows.filter(n =>
-                  (r.cn && (n.cn || "").trim() === (r.cn || "").trim()) ||
-                  firMatch(n.fn, String(parseInt(r.fn, 10) || r.fn), "")
-                );
+                // FIX 2: NV must match both crime/case number AND police station
+                const relatedNv = linkedNvForCase(r);
                 return (
                   <CaseDetail key={cnId} r={r} srcKey="cnum" relatedNv={relatedNv} />
                 );
