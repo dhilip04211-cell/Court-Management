@@ -775,6 +775,22 @@ tr:hover td{background:rgba(201,168,76,.04)}
   flex-wrap:wrap;
   gap:6px 16px;
 }
+  .vt-fir-nv-block,
+.cd-nv-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.vt-fir-nv-heading,
+.cd-nv-heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-amber);
+  margin-bottom: 6px;
+}
 .vt-fir-field{display:flex;align-items:baseline;gap:5px}
 .vt-fir-flbl{
   font-size:9px;

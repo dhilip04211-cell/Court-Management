@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function CaseDetail({ r, srcKey }) {
+export default function CaseDetail({ r, srcKey, relatedNv }) {
   const fields = {
     pend: [
       ["Case Number", r.cn, "hi mono"],
@@ -63,6 +63,7 @@ export default function CaseDetail({ r, srcKey }) {
 
   return (
     <div className="cd-root" style={{ "--cd-color": config.color, "--cd-bg": config.bg, "--cd-border": config.border }}>
+
       {/* Header strip */}
       <div className="cd-header">
         <div className="cd-header-icon">{config.icon}</div>
@@ -83,6 +84,17 @@ export default function CaseDetail({ r, srcKey }) {
           </div>
         ))}
       </div>
+
+      {/* ── Linked Non-Valuable Property (only for pend / disp / cnum) ── */}
+      {relatedNv?.length > 0 && (
+        <div className="cd-nv-section">
+          <div className="cd-nv-heading">🏷️ Non-Valuable Property</div>
+          {relatedNv.map((nv, i) => (
+            <CaseDetail key={i} r={nv} srcKey="nv" />
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }

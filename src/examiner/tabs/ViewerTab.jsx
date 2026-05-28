@@ -53,16 +53,13 @@ export default function ViewerTab({ db }) {
 
   const displayFIR = yr ? `${fn}/${yr}` : fn;
 
-  /* ── Case rows (Pending + Disposed only, no NV) ── */
   const caseRows = [
     ...pendHits.map(r => ({ ...r, _src: "pend" })),
     ...dispHits.map(r => ({ ...r, _src: "disp" })),
   ];
 
-  /* ── NV rows ── */
   const nvRows = nvHits.map(r => ({ ...r, _src: "nv" }));
 
-  /* ── Station names helper ── */
   function extractStations(rows) {
     const names = [];
     const seen = new Set();
@@ -198,34 +195,47 @@ export default function ViewerTab({ db }) {
                       <span className="vt-tag vt-tag-red">FIR Pending</span>
                     </div>
                     <div className="vt-fir-list">
-                      {rows.map((r, i) => (
-                        <div key={i} className="vt-fir-card">
-                          <div className="vt-fir-row-top">
-                            <div className="vt-fir-cr">{r.cr}</div>
-                            {r.yr && <span className="vt-tag vt-tag-amber">{r.yr}</span>}
+                      {rows.map((r, i) => {
+                        const firNum = String(parseInt(r.cr, 10) || r.cr);
+                        const linkedNv = nvRows.filter(n => firMatch(n.fn, firNum, ""));
+                        return (
+                          <div key={i} className="vt-fir-card">
+                            <div className="vt-fir-row-top">
+                              <div className="vt-fir-cr">{r.cr}</div>
+                              {r.yr && <span className="vt-tag vt-tag-amber">{r.yr}</span>}
+                            </div>
+                            <div className="vt-fir-meta">
+                              {r.sec && (
+                                <div className="vt-fir-field">
+                                  <span className="vt-fir-flbl">Section</span>
+                                  <span className="vt-fir-fval">{r.sec}</span>
+                                </div>
+                              )}
+                              {r.rp && (
+                                <div className="vt-fir-field">
+                                  <span className="vt-fir-flbl">RP Number</span>
+                                  <span className="vt-fir-fval vt-mono">{r.rp}</span>
+                                </div>
+                              )}
+                              {r.dr && (
+                                <div className="vt-fir-field">
+                                  <span className="vt-fir-flbl">Date Received</span>
+                                  <span className="vt-fir-fval vt-mono">{r.dr}</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* ── Linked NV records ── */}
+                            {linkedNv.length > 0 && (
+                              <div className="vt-fir-nv-block">
+                                <div className="vt-fir-nv-heading">🏷️ Non-Valuable Property</div>
+                                {linkedNv.map((nv, j) => (
+                                  <CaseDetail key={j} r={nv} srcKey="nv" />
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <div className="vt-fir-meta">
-                            {r.sec && (
-                              <div className="vt-fir-field">
-                                <span className="vt-fir-flbl">Section</span>
-                                <span className="vt-fir-fval">{r.sec}</span>
-                              </div>
-                            )}
-                            {r.rp && (
-                              <div className="vt-fir-field">
-                                <span className="vt-fir-flbl">RP Number</span>
-                                <span className="vt-fir-fval vt-mono">{r.rp}</span>
-                              </div>
-                            )}
-                            {r.dr && (
-                              <div className="vt-fir-field">
-                                <span className="vt-fir-flbl">Date Received</span>
-                                <span className="vt-fir-fval vt-mono">{r.dr}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -318,7 +328,13 @@ export default function ViewerTab({ db }) {
                         {srcRows.map((r, i) => {
                           const caseId = `${src}::${r.ri}::${i}`;
                           if (activeCaseId !== caseId) return null;
-                          return <CaseDetail key={caseId} r={r} srcKey={src} />;
+                          const relatedNv = nvRows.filter(n =>
+                            (r.cn && (n.cn || "").trim() === (r.cn || "").trim()) ||
+                            firMatch(n.fn, String(parseInt(r.fn, 10) || r.fn), "")
+                          );
+                          return (
+                            <CaseDetail key={caseId} r={r} srcKey={src} relatedNv={relatedNv} />
+                          );
                         })}
                       </div>
                     );
@@ -367,7 +383,6 @@ export default function ViewerTab({ db }) {
                   <div className="vt-cn-pills">
                     {nvStRows.map((r, i) => {
                       const nvId = `nv::${r.ri}::${i}`;
-                      /* Show RP number as pill label for NV */
                       const label = (r.rp || "").trim() || (r.cn || "").trim() || `#${r.sl || r.sno || i}`;
                       return (
                         <button
@@ -390,7 +405,7 @@ export default function ViewerTab({ db }) {
             </div>
           )}
 
-          {/* ════════════ SECTION 4 — Case Numbered (if any) ════════════ */}
+          {/* ════════════ SECTION 4 — Case Numbered ════════════ */}
           {cnHits.length > 0 && (
             <div className="vt-section">
               <div className="vt-section-header">
@@ -418,7 +433,13 @@ export default function ViewerTab({ db }) {
               {cnHits.map((r, i) => {
                 const cnId = `cnum::${r.ri}::${i}`;
                 if (activeCaseId !== cnId) return null;
-                return <CaseDetail key={cnId} r={r} srcKey="cnum" />;
+                const relatedNv = nvRows.filter(n =>
+                  (r.cn && (n.cn || "").trim() === (r.cn || "").trim()) ||
+                  firMatch(n.fn, String(parseInt(r.fn, 10) || r.fn), "")
+                );
+                return (
+                  <CaseDetail key={cnId} r={r} srcKey="cnum" relatedNv={relatedNv} />
+                );
               })}
             </div>
           )}
