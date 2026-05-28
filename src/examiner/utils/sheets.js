@@ -1,5 +1,5 @@
 import { isValidFIRCell, parseFIR, firSortKey } from "./helpers.js";
-import { SID, SMAP } from "../constants/config.js";
+import { SID } from "../constants/config.js";
 
 export async function sheetsGet(tok, sid, range) {
   const r = await fetch(
@@ -35,15 +35,35 @@ export async function sheetsAppend(tok, sid, range, vals) {
   return r.ok;
 }
 
-export async function getSheetIdByName(tok, sid, tabName) {
+export async function getSheetMeta(tok, sid) {
   const m = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sid}?fields=sheets.properties`,
     { headers: { Authorization: `Bearer ${tok}` } }
   );
   if (!m.ok) return null;
-  const meta = await m.json();
+  return await m.json();
+}
+
+export async function getSheetIdByName(tok, sid, tabName) {
+  const meta = await getSheetMeta(tok, sid);
+  if (!meta) return null;
   const sh = (meta.sheets || []).find(s => s.properties.title === tabName);
   return sh ? sh.properties.sheetId : null;
+}
+
+/**
+ * Load tab names from the FIR spreadsheet as SMAP.
+ * Skips known non-station tabs (Sheet1, Sheet2, etc. that are clearly not stations).
+ * Returns array of { sh, lb } where sh = tab name, lb = tab name (display label).
+ */
+export async function loadStationsFromSheet(tok) {
+  const meta = await getSheetMeta(tok, SID.fir);
+  if (!meta) return null;
+  const SKIP = /^(sheet1|sheet2|sheet3|sheet4|sheet5|sheet6)$/i;
+  return (meta.sheets || [])
+    .map(s => s.properties.title)
+    .filter(t => t && !SKIP.test(t.trim()))
+    .map(t => ({ sh: t, lb: t }));
 }
 
 export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
@@ -58,10 +78,8 @@ export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
         requests: [{
           deleteDimension: {
             range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: oneBasedRow - 1,
-              endIndex: oneBasedRow,
+              sheetId, dimension: "ROWS",
+              startIndex: oneBasedRow - 1, endIndex: oneBasedRow,
             }
           }
         }],
@@ -83,10 +101,8 @@ export async function sheetsInsertRow(tok, sid, tabName, oneBasedRow) {
         requests: [{
           insertDimension: {
             range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: oneBasedRow - 1,
-              endIndex: oneBasedRow,
+              sheetId, dimension: "ROWS",
+              startIndex: oneBasedRow - 1, endIndex: oneBasedRow,
             }, inheritFromBefore: false
           }
         }],
@@ -97,13 +113,11 @@ export async function sheetsInsertRow(tok, sid, tabName, oneBasedRow) {
 }
 
 export async function sheetsWriteRow(tok, sid, tabName, oneBasedRow, vals) {
-  const range = `${tabName}!A${oneBasedRow}:D${oneBasedRow}`;
-  return sheetsUpdate(tok, sid, range, [vals]);
+  return sheetsUpdate(tok, sid, `${tabName}!A${oneBasedRow}:D${oneBasedRow}`, [vals]);
 }
 
 export async function sheetsBatchWriteRows(tok, sid, tabName, startRow, rowsData) {
-  const range = `${tabName}!A${startRow}:D${startRow + rowsData.length - 1}`;
-  return sheetsUpdate(tok, sid, range, rowsData);
+  return sheetsUpdate(tok, sid, `${tabName}!A${startRow}:D${startRow + rowsData.length - 1}`, rowsData);
 }
 
 export async function loadFIRSheet(tok, tabName) {
@@ -133,16 +147,15 @@ export async function loadFIRSheet(tok, tabName) {
     }
 
     if (!isValidFIRCell(b)) continue;
-
     const crYr = parseFIR(b).yr || yg;
     data.push({ sl: a, cr: b, sec: c, dr: d, yr: crYr, ri: i + 1 });
   }
   return data;
 }
 
-export async function loadAllData(tok) {
+export async function loadAllData(tok, smap) {
   const fir = {};
-  for (const s of SMAP) {
+  for (const s of smap) {
     fir[s.sh] = await loadFIRSheet(tok, s.sh);
   }
 
@@ -189,57 +202,36 @@ export async function loadAllData(tok) {
 }
 
 /**
- * insertFIRSorted — FAST VERSION
- *
- * OLD: read sheet → insert row mid-sheet → write row → N individual sl updates
- *      = N+3 API calls (very slow, 10–30s for large sheets)
- *
- * NEW: append to bottom (1 call) → batch rewrite all sl+cr+sec+dr in ONE call
- *      = 2 API calls always, regardless of sheet size (~300ms total)
- *
- * The sheet stays logically sorted because sl column is renumbered to match
- * the sorted order. Physical row order doesn't matter — loadFIRSheet already
- * re-sorts by firSortKey when loading into the app.
+ * insertFIRSorted — FAST: 3 API calls always
+ * append to bottom → read once → batch rewrite sl
  */
 export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existingRows) {
-  // Step 1 — Append new row to the bottom (1 API call)
   const appended = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [
     ["", newCr, newSec, newDr]
   ]);
   if (!appended) return { ok: false, ri: -1 };
 
-  // Step 2 — Read sheet once to find all data rows + the row index we just appended
   const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
-
-  // Collect every valid FIR row with its 1-based sheet row index
   const dataRows = [];
   for (let i = 0; i < rawRows.length; i++) {
     const b = (rawRows[i][1] || "").toString().trim();
     if (isValidFIRCell(b)) {
-      dataRows.push({ ri: i + 1, cr: b, sec: (rawRows[i][2] || "").toString().trim(), dr: (rawRows[i][3] || "").toString().trim() });
+      dataRows.push({
+        ri: i + 1, cr: b,
+        sec: (rawRows[i][2] || "").toString().trim(),
+        dr: (rawRows[i][3] || "").toString().trim(),
+      });
     }
   }
-
-  // Sort logically by FIR number/year
   dataRows.sort((a, b) => firSortKey(a.cr) - firSortKey(b.cr));
 
-  // Find the newly appended row (it's the one matching newCr+newSec+newDr, last occurrence)
   let newRi = -1;
   for (let i = dataRows.length - 1; i >= 0; i--) {
     if (dataRows[i].cr === newCr) { newRi = dataRows[i].ri; break; }
   }
   const newSl = dataRows.findIndex(r => r.ri === newRi) + 1;
 
-  // Step 3 — Batch rewrite sl column for ALL data rows in one API call
-  // Build a values array covering the full sheet range
   if (dataRows.length > 0) {
-    // Find the contiguous sheet range that covers all data rows
-    // Build per-row sl updates using batchUpdate (ranges API: one data per row)
-    const slData = dataRows.map((r, i) => ({
-      range: `${tabName}!A${r.ri}`,
-      values: [[i + 1]],
-    }));
-
     await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SID.fir}/values:batchUpdate`,
       {
@@ -247,7 +239,7 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
         headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           valueInputOption: "USER_ENTERED",
-          data: slData,
+          data: dataRows.map((r, i) => ({ range: `${tabName}!A${r.ri}`, values: [[i + 1]] })),
         }),
       }
     );
@@ -257,8 +249,7 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
 }
 
 /**
- * Batch renumber all sl values for a tab — called from Maintenance panel.
- * 2 API calls: read + batch write.
+ * Batch renumber all sl for a tab — 2 API calls
  */
 export async function renumberFIRSheet(tok, tabName) {
   const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { CLIENT_ID, SCOPE, THEMES, SMAP, ACTS } from "./constants/config.js";
-import { loadAllData } from "./utils/sheets.js";
+import { CLIENT_ID, SCOPE, THEMES, SMAP as SMAP_DEFAULT } from "./constants/config.js";
+import { loadStationsFromSheet, loadAllData } from "./utils/sheets.js";
 import { getCSS } from "./utils/styles.js";
 import { AuthPrompt } from "./components/AuthPrompt.jsx";
 import SectionBuilder from "./components/SectionBuilder.jsx";
@@ -14,34 +14,22 @@ import AbstractTab from "./tabs/AbstractTab.jsx";
 
 export default function Examiner() {
   const [tok, setTok] = useState(() => {
-    try {
-      return localStorage.getItem("goog_tok") || null;
-    } catch {
-      return null;
-    }
+    try { return localStorage.getItem("goog_tok") || null; } catch { return null; }
   });
   const [tokExpiry, setTokExpiry] = useState(() => {
-    try {
-      return Number(localStorage.getItem("goog_tok_exp")) || 0;
-    } catch {
-      return 0;
-    }
+    try { return Number(localStorage.getItem("goog_tok_exp")) || 0; } catch { return 0; }
   });
   const [db, setDb] = useState(null);
+  const [smap, setSmap] = useState(SMAP_DEFAULT); // ← stations state, default from config
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("entry");
   const [themeId, setThemeId] = useState(() => {
-    try {
-      return localStorage.getItem("fir_theme") || "night";
-    } catch {
-      return "night";
-    }
+    try { return localStorage.getItem("fir_theme") || "night"; } catch { return "night"; }
   });
 
   const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
 
-  // CSS Setup
   useEffect(() => {
     let s = document.getElementById("fir-css");
     if (!s) {
@@ -60,9 +48,7 @@ export default function Examiner() {
 
   function switchTheme(id) {
     setThemeId(id);
-    try {
-      localStorage.setItem("fir_theme", id);
-    } catch { }
+    try { localStorage.setItem("fir_theme", id); } catch { }
   }
 
   useEffect(() => {
@@ -72,10 +58,7 @@ export default function Examiner() {
   useEffect(() => {
     if (!tokExpiry) return;
     const msLeft = tokExpiry - Date.now() - 5 * 60 * 1000;
-    if (msLeft <= 0) {
-      refreshToken();
-      return;
-    }
+    if (msLeft <= 0) { refreshToken(); return; }
     const t = setTimeout(refreshToken, msLeft);
     return () => clearTimeout(t);
   }, [tokExpiry]);
@@ -83,8 +66,7 @@ export default function Examiner() {
   function refreshToken() {
     if (!window.google) return;
     window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPE,
+      client_id: CLIENT_ID, scope: SCOPE,
       callback: (r) => {
         if (r.access_token) {
           const exp = Date.now() + (r.expires_in || 3600) * 1000;
@@ -103,8 +85,7 @@ export default function Examiner() {
   function signIn() {
     const load = () => {
       window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPE,
+        client_id: CLIENT_ID, scope: SCOPE,
         callback: (r) => {
           if (r.access_token) {
             const exp = Date.now() + (r.expires_in || 3600) * 1000;
@@ -133,17 +114,20 @@ export default function Examiner() {
       localStorage.removeItem("goog_tok");
       localStorage.removeItem("goog_tok_exp");
     } catch { }
-    setTok(null);
-    setTokExpiry(0);
-    setDb(null);
-    setError(null);
+    setTok(null); setTokExpiry(0); setDb(null); setError(null);
   }
 
   async function fetchAll(token) {
     setLoading(true);
     setError(null);
     try {
-      const data = await loadAllData(token);
+      // ── Load station names from FIR sheet tabs first ──────────────────
+      const loadedSmap = await loadStationsFromSheet(token);
+      const finalSmap = (loadedSmap && loadedSmap.length) ? loadedSmap : SMAP_DEFAULT;
+      setSmap(finalSmap);
+
+      // ── Load all sheet data using live station list ────────────────────
+      const data = await loadAllData(token, finalSmap);
       setDb(data);
     } catch (e) {
       console.error("Load error:", e);
@@ -159,9 +143,7 @@ export default function Examiner() {
     { id: "abstract", label: "📊 Abstract" },
   ];
 
-  if (!tok) {
-    return <AuthPrompt onSignIn={signIn} />;
-  }
+  if (!tok) return <AuthPrompt onSignIn={signIn} />;
 
   return (
     <div className="examiner-app">
@@ -175,8 +157,8 @@ export default function Examiner() {
           ))}
         </div>
         <div className="auth-area" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-          <div className={`dot ${tok ? "on" : ""}`}/>
-          <span style={{fontSize:10,color:"var(--txt3)"}}>{tok ? "Connected" : "Offline"}</span>
+          <div className={`dot ${tok ? "on" : ""}`} />
+          <span style={{ fontSize: 10, color: "var(--txt3)" }}>{tok ? "Connected" : "Offline"}</span>
           <button className="btn btn-o btn-sm" onClick={signOut}>Sign Out</button>
         </div>
       </div>
@@ -199,10 +181,10 @@ export default function Examiner() {
           </div>
 
           <div className="pane">
-            {activeTab === "entry" && <EntryTab db={db} setDb={setDb} tok={tok} />}
-            {activeTab === "viewer" && <ViewerTab db={db} />}
-            {activeTab === "ftc" && <FTCTab db={db} setDb={setDb} tok={tok} />}
-            {activeTab === "abstract" && <AbstractTab db={db} tok={tok} setDb={setDb} />}
+            {activeTab === "entry" && <EntryTab db={db} setDb={setDb} tok={tok} smap={smap} />}
+            {activeTab === "viewer" && <ViewerTab db={db} smap={smap} />}
+            {activeTab === "ftc" && <FTCTab db={db} setDb={setDb} tok={tok} smap={smap} />}
+            {activeTab === "abstract" && <AbstractTab db={db} tok={tok} smap={smap} />}
           </div>
         </>
       )}
@@ -210,5 +192,4 @@ export default function Examiner() {
   );
 }
 
-// Export components for external use
 export { SectionBuilder, NumPad2, DateNumPad, FIRNumPad, AuthPrompt };

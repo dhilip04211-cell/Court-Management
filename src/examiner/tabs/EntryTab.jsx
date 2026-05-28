@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { SMAP, SID } from "../constants/config.js";
+import { SID } from "../constants/config.js";
 import { firMatch, firSortKey } from "../utils/helpers.js";
 import { sheetsDeleteRow, insertFIRSorted, updateFIRRow } from "../utils/sheets.js";
 import SectionBuilder from "../components/SectionBuilder.jsx";
@@ -27,7 +27,8 @@ function isoToDt(iso) {
   return `${d.padStart(2, "0")}.${m}.${y}`;
 }
 
-export default function EntryTab({ db, setDb, tok }) {
+export default function EntryTab({ db, setDb, tok, smap }) {
+  const SMAP = smap || [];
   const curYr = String(new Date().getFullYear());
   const [fn, setFn] = useState(() => { try { return localStorage.getItem("fir_draft_fn") || ""; } catch { return ""; } });
   const [yr, setYr] = useState(() => { try { return localStorage.getItem("fir_draft_yr") || curYr; } catch { return curYr; } });
