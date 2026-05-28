@@ -109,7 +109,7 @@ export default function EntryTab({ db, setDb, tok }) {
 
   const stObj = SMAP.find(s => s.sh === st);
   const recent = st ? (db.fir[st] || []).slice(-3).reverse() : [];
-  const firReady = fn && yr;
+  const firReady = fn && yr && yr.length === 4;
 
   return (
     <div>
@@ -141,15 +141,9 @@ export default function EntryTab({ db, setDb, tok }) {
             <input className="inp mono" type="tel" inputMode="numeric" value={fn} onChange={e=>setFn(e.target.value)} placeholder="e.g. 561" />
           </div>
           <div style={{flex:"1 1 130px",minWidth:0}}>
-            <div className="lbl" style={{marginBottom:4}}>Year</div>
-            <div className="val-display mono" style={{marginBottom:6}}>{yr}</div>
-            <div className="yr-ctrl" style={{marginBottom:6}}>
-              <button className="btn btn-o btn-sm" onClick={()=>setYr(y=>String(parseInt(y)-1))}>◀</button>
-              <span className="yr-val">{yr}</span>
-              <button className="btn btn-o btn-sm" onClick={()=>setYr(y=>String(parseInt(y)+1))}>▶</button>
-              {yr!==curYr && <span className="rst" onClick={()=>setYr(curYr)}>reset</span>}
-            </div>
-            {fn && yr && (
+            <label className="lbl">Year</label>
+            <input className="inp mono" type="tel" inputMode="numeric" maxLength={4} value={yr} onChange={e=>setYr(e.target.value.replace(/\D/g,"").slice(0, 4))} placeholder={curYr} />
+            {fn && yr && yr.length === 4 && (
               <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
                 <span style={{fontSize:13,fontWeight:700,color:"var(--gold)",fontFamily:"JetBrains Mono,monospace"}}>
                   {parseInt(fn,10)}/{yr}

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { buildSectionString } from "../utils/helpers.js";
 import { ACTS } from "../constants/config.js";
-import NumPad2 from "./NumPad2.jsx";
 
 export default function SectionBuilder({ value, onChange }) {
   const [groups, setGroups] = useState([]);
@@ -149,9 +148,29 @@ export default function SectionBuilder({ value, onChange }) {
           <div className="sec-divider">
             Enter Section for {ACTS.find(a => a.id === activeAct)?.label}
           </div>
-          <div className="sec-numpad-wrap">
-            <NumPad2 label="Main Section" value={mainSec} onChange={setMainSec} maxLen={8} />
-            <NumPad2 label="Sub-Section (optional)" value={subSec} onChange={setSubSec} maxLen={6} withBrackets />
+          <div className="frow" style={{ marginTop: 8 }}>
+            <div style={{ flex: "1 1 130px", minWidth: 0 }}>
+              <label className="lbl">Main Section</label>
+              <input
+                className="inp mono"
+                type="text"
+                value={mainSec}
+                onChange={e => setMainSec(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && mainSec && addSection()}
+                placeholder="e.g. 304A"
+              />
+            </div>
+            <div style={{ flex: "1 1 130px", minWidth: 0 }}>
+              <label className="lbl">Sub-Section (optional)</label>
+              <input
+                className="inp mono"
+                type="text"
+                value={subSec}
+                onChange={e => setSubSec(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && mainSec && addSection()}
+                placeholder="e.g. 2"
+              />
+            </div>
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             <button className="btn btn-g btn-sm"

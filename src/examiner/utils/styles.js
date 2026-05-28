@@ -4,14 +4,22 @@
 export function getCSS(themeVars) {
   const varBlock = Object.entries(themeVars).map(([k, v]) => `${k}:${v}`).join(";");
   return `
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-:root{${varBlock};--r:8px;--rl:12px;}
-html{-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--txt);font-family:'Crimson Pro',Georgia,serif;font-size:14px;min-height:100vh;transition:background .3s,color .3s}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+.examiner-app{
+  background:var(--bg);
+  color:var(--txt);
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:14px;
+  min-height:100vh;
+  transition:background .3s,color .3s;
+  display:flex;
+  flex-direction:column;
+  --r:8px;
+  --rl:12px;
+  ${varBlock};
+}
+.examiner-app *{box-sizing:border-box}
 .mono{font-family:'JetBrains Mono',monospace}
-
-.app{display:flex;flex-direction:column;min-height:100vh}
 
 /* HEADER */
 .hdr{background:var(--bg2);border-bottom:2px solid var(--gold-d);padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
@@ -40,7 +48,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Crimson Pro',Georgia,ser
 
 .fg{display:flex;flex-direction:column;gap:3px;min-width:0}
 .lbl{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;font-family:'JetBrains Mono',monospace}
-.inp{background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;color:var(--txt);padding:7px 10px;font-size:13px;outline:none;width:100%;transition:border-color .15s,background .3s;font-family:'Crimson Pro',serif;-webkit-appearance:none;appearance:none}
+.inp{background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;color:var(--txt);padding:7px 10px;font-size:13px;outline:none;width:100%;transition:border-color .15s,background .3s;font-family:inherit;-webkit-appearance:none;appearance:none}
 .inp:focus{border-color:var(--gold)}
 select.inp{cursor:pointer}
 .frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}
@@ -83,7 +91,7 @@ select.inp{cursor:pointer}
 
 /* SECTION BUILDER */
 .sec-builder{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--rl);padding:12px;margin-bottom:10px}
-.sec-preview{background:var(--bg);border:1px solid var(--gold-d);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--txt);font-family:'Crimson Pro',serif;margin-bottom:10px;min-height:36px;line-height:1.6;word-break:break-word}
+.sec-preview{background:var(--bg);border:1px solid var(--gold-d);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--txt);font-family:inherit;margin-bottom:10px;min-height:36px;line-height:1.6;word-break:break-word}
 .sec-preview em{color:var(--gold);font-style:normal;font-weight:700}
 .sec-group{background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
 .sec-group-act{font-size:10px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;flex-shrink:0;padding-top:3px}
@@ -185,7 +193,7 @@ tr:hover td{background:rgba(201,168,76,.04)}
 /* MODAL CONFIRM */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
 .modal{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rl);padding:20px;max-width:360px;width:100%;box-shadow:0 20px 60px var(--shadow)}
-.modal-title{font-size:14px;font-weight:700;color:var(--red);margin-bottom:8px;font-family:'Cinzel',serif}
+.modal-title{font-size:14px;font-weight:700;color:var(--red);margin-bottom:8px;font-family:inherit}
 .modal-body{font-size:13px;color:var(--txt2);margin-bottom:16px;line-height:1.6}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end}
 

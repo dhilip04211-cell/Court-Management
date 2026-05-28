@@ -28,7 +28,13 @@ export default function Examiner() {
     }
   });
   const [db, setDb] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !!localStorage.getItem("goog_tok");
+    } catch {
+      return false;
+    }
+  });
   const [activeTab, setActiveTab] = useState("entry");
   const [themeId, setThemeId] = useState(() => {
     try {
@@ -160,29 +166,30 @@ export default function Examiner() {
   }
 
   return (
-    <div className="app">
-      <div className="hdr">
-        <div>
-          <div className="hdr-logo">⚖ FIR Management</div>
-          <div className="hdr-sub">Jayankondam Sub-Division · Police Records</div>
+    <div className="examiner-app">
+      <div className="theme-bar" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span className="theme-lbl">Theme:</span>
+          {THEMES.map(t => (
+            <div key={t.id} className={`theme-pill ${themeId === t.id ? "act" : ""}`} onClick={() => switchTheme(t.id)}>
+              {t.label}
+            </div>
+          ))}
         </div>
-        <div className="auth-area">
+        <div className="auth-area" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+          <div className={`dot ${tok ? "on" : ""}`}/>
+          <span style={{fontSize:10,color:"var(--txt3)"}}>{tok ? "Connected" : "Offline"}</span>
           <button className="btn btn-o btn-sm" onClick={signOut}>Sign Out</button>
         </div>
       </div>
 
-      <div className="theme-bar">
-        <span className="theme-lbl">Theme:</span>
-        {THEMES.map(t => (
-          <div key={t.id} className={`theme-pill ${themeId === t.id ? "act" : ""}`} onClick={() => switchTheme(t.id)}>
-            {t.label}
-          </div>
-        ))}
-      </div>
-
       {loading ? (
         <div className="spin-wrap">
-          <div className="spin"></div> Loading...
+          <div className="spin"></div> Loading data from Google Sheets...
+        </div>
+      ) : !db ? (
+        <div className="msg-err" style={{ margin: "20px auto", maxWidth: "400px", textAlign: "center" }}>
+          Failed to load data. Check network / permissions or reload.
         </div>
       ) : (
         <>
