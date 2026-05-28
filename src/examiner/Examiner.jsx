@@ -182,7 +182,7 @@ export default function Examiner() {
 
           <div className="pane">
             {activeTab === "entry" && <EntryTab db={db} setDb={setDb} tok={tok} smap={smap} />}
-            {activeTab === "viewer" && <ViewerTab db={db} smap={smap} />}
+            {activeTab === "viewer" && <ViewerTab db={db} smap={smap} />
             {activeTab === "ftc" && <FTCTab db={db} setDb={setDb} tok={tok} smap={smap} />}
             {activeTab === "abstract" && <AbstractTab db={db} tok={tok} smap={smap} />}
           </div>

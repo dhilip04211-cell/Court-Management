@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { SMAP } from "../constants/config.js";
 import { firMatch } from "../utils/helpers.js";
 import CaseDetail from "../components/CaseDetail.jsx";
 
-export default function ViewerTab({ db }) {
+export default function ViewerTab({ db, smap }) {
+  const SMAP = smap || [];
   const [fn, setFn] = useState("");
   const [yr, setYr] = useState("");
   const [searched, setSearched] = useState(false);
