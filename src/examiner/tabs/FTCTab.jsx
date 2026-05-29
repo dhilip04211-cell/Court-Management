@@ -1,179 +1,323 @@
 import { useState } from "react";
-import { SMAP, SID } from "../constants/config.js";
+import { SID } from "../constants/config.js";
 import { firMatch } from "../utils/helpers.js";
 import { sheetsAppend, sheetsDeleteRow } from "../utils/sheets.js";
 
-export default function FTCTab({ db, setDb, tok }) {
+export default function FTCTab({ db, setDb, tok, smap }) {
+  const SMAP = smap || [];
   const curYr = String(new Date().getFullYear());
-  const [step,setStep]       = useState(1);
-  const [fn,setFn]           = useState("");
-  const [yr,setYr]           = useState(curYr);
-  const [st,setSt]           = useState("JKM");
-  const [firRow,setFirRow]   = useState(null);
-  const [selCase,setSelCase] = useState(null);
-  const [msg,setMsg]         = useState(null);
 
-  function reset() {
-    setStep(1);setFn("");setYr(curYr);setSt("JKM");
-    setFirRow(null);setSelCase(null);setMsg(null);
-  }
+  const [fn, setFn] = useState("");
+  const [yr, setYr] = useState(curYr);
+  const [searched, setSearched] = useState(false);
+  const [selSt, setSelSt] = useState(null);
+  const [selCase, setSelCase] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
 
-  function searchFIR() {
-    if (!fn) { setMsg({type:"err",text:"Enter FIR Number."}); return; }
-    const sNum = String(parseInt(fn,10)||fn);
-    const rows = (db.fir[st]||[]).filter(r=>firMatch(r.cr,sNum,yr));
-    if (!rows.length) {
-      setMsg({type:"err",text:`FIR ${fn}/${yr} not found in ${SMAP.find(s=>s.sh===st)?.lb}.`});
+  const sNum = fn ? String(parseInt(fn, 10) || fn) : "";
+  const displayFIR = sNum && yr ? `${sNum}/${yr}` : sNum;
+
+  function doSearch() {
+    if (!fn || !yr || yr.length < 4) {
+      setMsg({ type: "err", text: "Enter a valid FIR number and 4-digit year." });
       return;
     }
-    setFirRow(rows[0]); setStep(2); setMsg(null);
+    setSearched(true);
+    setSelSt(null); setSelCase(null);
+    setConfirming(false); setMsg(null);
   }
 
-  function buildCases() {
-    const sNum = String(parseInt(fn,10)||fn);
-    return [
-      ...db.pend.filter(c=>firMatch(c.fn,sNum,yr)).map(c=>({...c,_type:"pending"})),
-      ...db.disp.filter(c=>firMatch(c.fn,sNum,yr)).map(c=>({...c,_type:"disposal"})),
-    ];
+  function resetAll() {
+    setFn(""); setYr(curYr); setSearched(false);
+    setSelSt(null); setSelCase(null);
+    setConfirming(false); setBusy(false); setMsg(null);
   }
+
+  function handleFnChange(v) {
+    setFn(v.replace(/\D/g, ""));
+    setSearched(false); setSelSt(null); setSelCase(null); setConfirming(false);
+  }
+
+  function handleYrChange(v) {
+    setYr(v.replace(/\D/g, "").slice(0, 4));
+    setSearched(false); setSelSt(null); setSelCase(null); setConfirming(false);
+  }
+
+  // Stations that contain this FIR
+  const stationHits = searched && sNum && yr
+    ? SMAP.filter(s => (db.fir[s.sh] || []).some(r => firMatch(r.cr, sNum, yr)))
+    : [];
+
+  const firRow = selSt
+    ? (db.fir[selSt] || []).find(r => firMatch(r.cr, sNum, yr))
+    : null;
+
+  const stObj = selSt ? SMAP.find(s => s.sh === selSt) : null;
+
+  const allCases = selSt ? [
+    ...db.pend.filter(c => firMatch(c.fn, sNum, yr)).map(c => ({ ...c, _type: "pending" })),
+    ...db.disp.filter(c => firMatch(c.fn, sNum, yr)).map(c => ({ ...c, _type: "disposal" })),
+  ] : [];
 
   async function execute() {
-    setMsg({type:"loading",text:"Processing…"});
-    const sc=selCase;
-    const stLb=SMAP.find(x=>x.sh===st)?.lb||st;
-    const row=[
-      `${fn}/${yr}`,stLb,firRow?.sec||"",firRow?.dr||"",
-      sc.cn||"",sc.pt||"",sc.adv||"",sc.dreg||"",
-      sc.nxt||sc.ddec||"",sc._type||"",sc.sec||"",sc.nat||"",sc.des||""
+    if (!selCase || !firRow || !selSt) return;
+    setBusy(true);
+    setMsg({ type: "loading", text: "Processing…" });
+    const stLb = stObj?.lb || selSt;
+    const row = [
+      `${sNum}/${yr}`, stLb, firRow.sec || "", firRow.dr || "",
+      selCase.cn || "", selCase.pt || "", selCase.adv || "", selCase.dreg || "",
+      selCase.nxt || selCase.ddec || "", selCase._type || "",
+      selCase.sec || "", selCase.nat || "", selCase.des || "",
     ];
-    const saved=await sheetsAppend(tok,SID.casenum,"Sheet1!A:M",[row]);
-    if (!saved) { setMsg({type:"err",text:"Failed to save to Case Numbered sheet."}); return; }
-    if (firRow?.ri && firRow.ri!==999999) {
-      await sheetsDeleteRow(tok,SID.fir,st,firRow.ri);
+    const saved = await sheetsAppend(tok, SID.casenum, "Sheet1!A:M", [row]);
+    if (!saved) {
+      setMsg({ type: "err", text: "Failed to save to Case Numbered sheet." });
+      setBusy(false); return;
     }
-    const idx=(db.fir[st]||[]).findIndex(r=>r.cr===firRow?.cr);
-    if (idx>=0) {
-      const newFir=[...(db.fir[st]||[])];
-      newFir.splice(idx,1);
-      setDb(prev=>({...prev,fir:{...prev.fir,[st]:newFir},cnum:[...prev.cnum,{fn:`${fn}/${yr}`,sta:stLb,...sc}]}));
+    if (firRow.ri && firRow.ri !== 999999) {
+      await sheetsDeleteRow(tok, SID.fir, selSt, firRow.ri);
     }
-    setMsg({type:"ok",text:`✓ FIR ${fn}/${yr} moved to Case Numbered.`});
-    setTimeout(reset,1600);
+    const idx = (db.fir[selSt] || []).findIndex(r => r.cr === firRow.cr);
+    if (idx >= 0) {
+      const newFir = [...(db.fir[selSt] || [])];
+      newFir.splice(idx, 1);
+      setDb(prev => ({
+        ...prev,
+        fir: { ...prev.fir, [selSt]: newFir },
+        cnum: [...prev.cnum, { fn: `${sNum}/${yr}`, sta: stLb, ...selCase }],
+      }));
+    }
+    setMsg({ type: "ok", text: `✓ FIR ${displayFIR} moved to Case Numbered.` });
+    setBusy(false);
+    setTimeout(resetAll, 1800);
   }
 
-  const allCases=step>=2?buildCases():[];
-  const stLb=SMAP.find(x=>x.sh===st)?.lb||st;
-
   return (
-    <div className="card">
-      <div className="ctitle">📁 FIR → Case Numbered</div>
-      <div className="step-row">
-        {[1,2,3].map((n,i) => (
-          <div key={n} style={{display:"flex",alignItems:"center",flex:i<2?"1":"initial",gap:4}}>
-            <div className={`step-dot ${step>n?"done":step===n?"act":""}`}>{step>n?"✓":n}</div>
-            {i<2 && <div className="step-line"/>}
+    <div className="vt-root" style={{ padding: "0 0 32px" }}>
+
+      {/* ── Search card ── */}
+      <div className="vt-search-card">
+        <div className="vt-search-eyebrow">FIR → CASE NUMBERED</div>
+        <div className="vt-search-row">
+          <div className="vt-fg vt-fg-grow">
+            <label className="vt-lbl">FIR Number</label>
+            <input
+              className="vt-inp vt-mono"
+              type="tel" inputMode="numeric"
+              value={fn}
+              onChange={e => handleFnChange(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && doSearch()}
+              placeholder="e.g. 123"
+              autoFocus
+            />
           </div>
-        ))}
+          <div className="vt-fg" style={{ flex: "0 0 90px" }}>
+            <label className="vt-lbl">Year</label>
+            <input
+              className="vt-inp vt-mono"
+              type="tel" inputMode="numeric"
+              maxLength={4}
+              value={yr}
+              onChange={e => handleYrChange(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && doSearch()}
+              placeholder={curYr}
+            />
+          </div>
+          <div className="vt-search-actions">
+            <button className="vt-btn vt-btn-primary" onClick={doSearch}>Search</button>
+            {searched && (
+              <button className="vt-btn vt-btn-ghost" onClick={resetAll}>✕</button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {step===1 && (
-        <div>
-          <div style={{fontSize:11,color:"var(--txt3)",marginBottom:12}}>Step 1 — Enter FIR details</div>
-          <div className="frow">
-            <div className="fg">
-              <label className="lbl">FIR Number</label>
-              <input className="inp mono" type="tel" inputMode="numeric" value={fn}
-                onChange={e=>setFn(e.target.value)} placeholder="e.g. 561"/>
-            </div>
-            <div className="fg">
-              <label className="lbl">Year</label>
-              <input className="inp mono" type="tel" inputMode="numeric" value={yr}
-                onChange={e=>setYr(e.target.value)} placeholder={curYr}/>
-            </div>
-            <div className="fg">
-              <label className="lbl">Police Station</label>
-              <select className="inp" value={st} onChange={e=>setSt(e.target.value)}>
-                {SMAP.map(s=><option key={s.sh} value={s.sh}>{s.lb}</option>)}
-              </select>
-            </div>
+      {/* ── No results ── */}
+      {searched && stationHits.length === 0 && (
+        <div className="vt-empty">
+          <div className="vt-empty-icon">🔍</div>
+          <div className="vt-empty-title">FIR not found in any station</div>
+          <div className="vt-empty-sub">
+            for <span className="vt-gold">{displayFIR}</span>
           </div>
-          <button className="btn btn-g" onClick={searchFIR}>🔍 Search FIR</button>
         </div>
       )}
 
-      {step===2 && (
-        <div>
-          <div style={{fontSize:11,color:"var(--txt3)",marginBottom:12}}>Step 2 — Select linked case</div>
-          {firRow && (
-            <div className="msg-info" style={{marginBottom:10}}>
-              ✓ FIR {firRow.cr} — {firRow.sec} | Received: {firRow.dr}
-            </div>
-          )}
-          <div style={{fontSize:11,color:"var(--txt2)",marginBottom:6}}>
-            Matched cases ({allCases.length})
+      {/* ── Results ── */}
+      {searched && stationHits.length > 0 && (
+        <div className="vt-results">
+
+          {/* Summary strip */}
+          <div className="vt-summary">
+            <span className="vt-summary-count">{stationHits.length}</span>
+            <span className="vt-summary-label">
+              station{stationHits.length > 1 ? "s" : ""} for
+            </span>
+            <span className="vt-summary-fir">{displayFIR}</span>
           </div>
-          {allCases.length===0
-            ? <div className="no-data">No pending/disposal cases found for FIR {fn}/{yr}.</div>
-            : allCases.map((c,i) => (
-              <div key={i}
-                className={`case-sel ${selCase?.cn===c.cn&&selCase?._type===c._type?"sel":""}`}
-                onClick={()=>setSelCase(c)}>
-                <div style={{minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:13,fontFamily:"JetBrains Mono,monospace"}}>{c.cn||"—"}</div>
-                  <div style={{color:"var(--txt2)",fontSize:12,marginTop:2,wordBreak:"break-word"}}>{c.pt}</div>
-                  <div style={{color:"var(--txt3)",fontSize:11,marginTop:2}}>{c.sta||""}{c.dreg?` · ${c.dreg}`:""}</div>
+
+          {/* ── Section: Station selector ── */}
+          <div className="vt-section">
+            <div className="vt-section-header">
+              <div className="vt-section-icon vt-icon-fir">📋</div>
+              <div>
+                <div className="vt-section-title">FIR Pending Register</div>
+                <div className="vt-section-sub">Tap station to view details</div>
+              </div>
+            </div>
+
+            <div className="vt-chip-row">
+              {stationHits.map(s => (
+                <button
+                  key={s.sh}
+                  className={`vt-chip vt-chip-fir${selSt === s.sh ? " vt-chip-active-fir" : ""}`}
+                  onClick={() => {
+                    setSelSt(selSt === s.sh ? null : s.sh);
+                    setSelCase(null); setConfirming(false); setMsg(null);
+                  }}
+                >
+                  <span className="vt-chip-label">{s.lb}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ── FIR detail ── */}
+            {selSt && firRow && (
+              <div className="vt-panel vt-panel-fir" style={{ marginTop: 0 }}>
+
+                {/* FIR info */}
+                <div className="ftc-fir-info">
+                  <div className="ftc-fir-cr">{firRow.cr}</div>
+                  <div className="ftc-fir-fields">
+                    {firRow.sec && (
+                      <div className="ftc-field">
+                        <span className="ftc-flbl">Section</span>
+                        <span className="ftc-fval">{firRow.sec}</span>
+                      </div>
+                    )}
+                    {firRow.dr && (
+                      <div className="ftc-field">
+                        <span className="ftc-flbl">Date Received</span>
+                        <span className="ftc-fval vt-mono">{firRow.dr}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className={`bdg ${c._type==="pending"?"bdg-b":"bdg-g"}`} style={{flexShrink:0}}>
-                  {c._type==="pending"?"Pending":"Disposed"}
-                </span>
+
+                {/* ── Cases ── */}
+                <div className="ftc-cases-hdr">
+                  <span className="ftc-cases-title">Linked Cases</span>
+                  <span className="vt-tag vt-tag-blue">{allCases.length}</span>
+                </div>
+
+                {allCases.length === 0 ? (
+                  <div className="ftc-no-cases">
+                    No pending or disposed cases found for {displayFIR}
+                  </div>
+                ) : (
+                  <div className="ftc-case-list">
+                    {allCases.map((c, i) => {
+                      const isSel = selCase?.cn === c.cn && selCase?._type === c._type;
+                      return (
+                        <div
+                          key={i}
+                          className={`ftc-case-card${isSel ? " ftc-case-sel" : ""}`}
+                          onClick={() => {
+                            setSelCase(isSel ? null : c);
+                            setConfirming(false);
+                          }}
+                        >
+                          <div className="ftc-case-top">
+                            <span className="ftc-case-cn">{c.cn || "—"}</span>
+                            <span className={`vt-tag ${c._type === "pending" ? "vt-tag-blue" : "vt-tag-green"}`}>
+                              {c._type === "pending" ? "Pending" : "Disposed"}
+                            </span>
+                          </div>
+                          {c.pt && <div className="ftc-case-pt">{c.pt}</div>}
+                          <div className="ftc-case-meta">
+                            {c.sta && <span>{c.sta}</span>}
+                            {c.dreg && <span>Reg: {c.dreg}</span>}
+                          </div>
+                          {isSel && <div className="ftc-sel-tick">✓ Selected</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── Proceed button ── */}
+                {selCase && !confirming && (
+                  <div style={{ marginTop: 10 }}>
+                    <button className="ftc-proceed-btn" onClick={() => setConfirming(true)}>
+                      Review &amp; Move →
+                    </button>
+                  </div>
+                )}
+
+                {/* ── Confirm panel ── */}
+                {selCase && confirming && (
+                  <div className="ftc-confirm">
+                    <div className="ftc-confirm-title">⚠ Confirm Move</div>
+                    <div className="ftc-confirm-grid">
+                      <div className="ftc-cf">
+                        <span className="ftc-cf-lbl">FIR</span>
+                        <span className="ftc-cf-val vt-mono">{displayFIR}</span>
+                      </div>
+                      <div className="ftc-cf">
+                        <span className="ftc-cf-lbl">Station</span>
+                        <span className="ftc-cf-val">{stObj?.lb}</span>
+                      </div>
+                      <div className="ftc-cf">
+                        <span className="ftc-cf-lbl">Case Number</span>
+                        <span className="ftc-cf-val vt-mono" style={{ color: "var(--vt-purple)" }}>
+                          {selCase.cn || "—"}
+                        </span>
+                      </div>
+                      <div className="ftc-cf">
+                        <span className="ftc-cf-lbl">Case Station</span>
+                        <span className="ftc-cf-val">{selCase.sta || "—"}</span>
+                      </div>
+                      <div className="ftc-cf" style={{ gridColumn: "1 / -1" }}>
+                        <span className="ftc-cf-lbl">Parties</span>
+                        <span className="ftc-cf-val">{selCase.pt || "—"}</span>
+                      </div>
+                    </div>
+                    <div className="ftc-warn-note">
+                      This will delete FIR {displayFIR} from &ldquo;{stObj?.lb}&rdquo; and save to Case Numbered.
+                    </div>
+                    <div className="ftc-confirm-actions">
+                      <button
+                        className="vt-btn vt-btn-ghost"
+                        style={{ padding: "9px 14px" }}
+                        onClick={() => setConfirming(false)}
+                        disabled={busy}
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        className="ftc-execute-btn"
+                        onClick={execute}
+                        disabled={busy}
+                      >
+                        {busy ? "⏳ Processing…" : "🗂 Move to Case Numbered"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
-            ))
-          }
-          <div style={{display:"flex",gap:8,marginTop:10}}>
-            <button className="btn btn-o" onClick={()=>{setStep(1);setSelCase(null);}}>← Back</button>
-            <button className="btn btn-g" disabled={!selCase} onClick={()=>setStep(3)}>Next →</button>
+            )}
           </div>
         </div>
       )}
 
-      {step===3 && (
-        <div>
-          <div style={{fontSize:11,color:"var(--txt3)",marginBottom:12}}>Step 3 — Confirm & Execute</div>
-          <div className="confirm-box">
-            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
-              <span style={{fontSize:14,fontWeight:700,color:"var(--gold)",fontFamily:"JetBrains Mono,monospace"}}>
-                FIR: {fn}/{yr}
-              </span>
-              <span className="bdg bdg-a">{stLb}</span>
-              <span style={{color:"var(--txt2)"}}>→</span>
-              <span className="bdg bdg-p">{selCase?.cn||"N/A"}</span>
-            </div>
-            <div className="det-grid">
-              <div><div className="df-lbl">Section U/s</div><div className="df-val">{firRow?.sec||"—"}</div></div>
-              <div><div className="df-lbl">Date Received</div><div className="df-val mono">{firRow?.dr||"—"}</div></div>
-              <div><div className="df-lbl">Case Number</div>
-                <div className="df-val mono" style={{color:"var(--pur)"}}>{selCase?.cn||"—"}</div>
-              </div>
-              <div><div className="df-lbl">Police Station</div><div className="df-val">{selCase?.sta||"—"}</div></div>
-              <div style={{gridColumn:"1/-1"}}>
-                <div className="df-lbl">Petitioner VS Respondent</div>
-                <div className="df-val">{selCase?.pt||"—"}</div>
-              </div>
-            </div>
-          </div>
-          <div className="warn-box">
-            ⚠ This will delete FIR {fn}/{yr} from the "{st}" sheet and save to Case Numbered.
-          </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button className="btn btn-o" onClick={()=>setStep(2)}>← Back</button>
-            <button className="btn btn-r" onClick={execute}>🗂 Move to Case Numbered</button>
-          </div>
-        </div>
-      )}
-
-      {msg && (
-        <div className={msg.type==="ok"?"msg-ok":msg.type==="err"?"msg-err":"msg-info"} style={{marginTop:10}}>
-          {msg.type==="loading"&&<span className="spin" style={{display:"inline-block",marginRight:6}}/>}
+      {/* ── Message ── */}
+      {msg && msg.type !== "loading" && (
+        <div className={`et-msg et-msg-${msg.type === "ok" ? "ok" : msg.type === "err" ? "err" : "info"}`}
+          style={{ marginTop: 12 }}>
           {msg.text}
         </div>
       )}

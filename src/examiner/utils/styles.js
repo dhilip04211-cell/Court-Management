@@ -782,6 +782,48 @@ tr:hover td{background:rgba(201,168,76,.04)}
   border-top: 1px solid rgba(245, 158, 11, 0.2);
 }
 
+/* ============================================================
+   FTC TAB — ftc-*
+   ============================================================ */
+.ftc-fir-info{background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.ftc-fir-cr{font-size:18px;font-weight:800;color:var(--vt-red);font-family:'JetBrains Mono',monospace;letter-spacing:.5px;margin-bottom:6px}
+.ftc-fir-fields{display:flex;flex-wrap:wrap;gap:6px 18px}
+.ftc-field{display:flex;align-items:baseline;gap:5px}
+.ftc-flbl{font-size:9px;color:var(--vt-txt3);text-transform:uppercase;letter-spacing:.5px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.ftc-fval{font-size:12px;color:var(--vt-txt2);font-family:'JetBrains Mono',monospace;word-break:break-word}
+
+.ftc-cases-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ftc-cases-title{font-size:11px;font-weight:800;color:var(--vt-txt2);text-transform:uppercase;letter-spacing:.6px;font-family:'JetBrains Mono',monospace}
+.ftc-no-cases{font-size:12px;color:var(--vt-txt3);padding:12px 0;text-align:center}
+
+.ftc-case-list{display:flex;flex-direction:column;gap:7px;margin-bottom:8px}
+.ftc-case-card{background:var(--vt-bg3);border:1.5px solid var(--vt-bdr2);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .14s;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ftc-case-card:hover{border-color:rgba(88,166,255,.4)}
+.ftc-case-sel{border-color:var(--vt-blue)!important;background:rgba(88,166,255,.08)!important}
+.ftc-case-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.ftc-case-cn{font-size:14px;font-weight:800;color:var(--vt-txt);font-family:'JetBrains Mono',monospace;letter-spacing:.3px}
+.ftc-case-pt{font-size:12px;color:var(--vt-txt2);margin-bottom:4px;line-height:1.4;word-break:break-word}
+.ftc-case-meta{display:flex;gap:10px;font-size:11px;color:var(--vt-txt3);font-family:'JetBrains Mono',monospace;flex-wrap:wrap}
+.ftc-sel-tick{font-size:11px;font-weight:700;color:var(--vt-blue);margin-top:6px;font-family:'JetBrains Mono',monospace}
+
+.ftc-proceed-btn{width:100%;padding:12px;border-radius:10px;background:var(--vt-blue);color:#000;font-size:13px;font-weight:800;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.3px;transition:all .15s;touch-action:manipulation}
+.ftc-proceed-btn:hover{background:#7dc8ff;transform:translateY(-1px);box-shadow:0 4px 16px rgba(88,166,255,.3)}
+
+.ftc-confirm{background:rgba(248,81,73,.05);border:1px solid rgba(248,81,73,.2);border-radius:10px;padding:12px;margin-top:10px}
+.ftc-confirm-title{font-size:12px;font-weight:800;color:var(--vt-red);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+.ftc-confirm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.ftc-cf{display:flex;flex-direction:column;gap:2px}
+.ftc-cf-lbl{font-size:9px;color:var(--vt-txt3);text-transform:uppercase;letter-spacing:.5px;font-family:'JetBrains Mono',monospace}
+.ftc-cf-val{font-size:13px;color:var(--vt-txt);word-break:break-word;line-height:1.4}
+.ftc-warn-note{font-size:11px;color:var(--vt-red);background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.18);border-radius:7px;padding:8px 10px;margin-bottom:10px;line-height:1.5}
+.ftc-confirm-actions{display:flex;gap:8px}
+.ftc-execute-btn{flex:1;padding:11px 16px;border-radius:10px;background:var(--vt-red);color:#fff;font-size:12px;font-weight:800;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.3px;transition:all .15s;touch-action:manipulation}
+.ftc-execute-btn:hover:not(:disabled){background:#ff7a73;transform:translateY(-1px)}
+.ftc-execute-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+@media(max-width:480px){
+  .ftc-confirm-grid{grid-template-columns:1fr}
+}
 .vt-fir-nv-heading,
 .cd-nv-heading {
   font-size: 11px;
