@@ -1,6 +1,11 @@
-/* Court Management — Base Reset */
-/* All theme variables and styles are handled inside App.jsx */
+/* ═══════════════════════════════════════════════════════════════
+   Court Management — Global CSS Variables + Base Reset
+   All theme tokens live here. App.jsx reads [data-theme] from <html>.
+   Child tabs (EntryTab, ViewerTab, FTCTab, AbstractTab) consume
+   these variables directly — no getCSS() injection needed.
+═══════════════════════════════════════════════════════════════ */
 
+/* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -24,4 +29,377 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+}
+
+/* ── DARK THEME (default) ───────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  /* App-level */
+  --bg:               #0D1117;
+  --navbar:           rgba(13,17,23,0.92);
+  --mobile-menu-bg:   rgba(13,17,23,0.97);
+  --mobile-item-bg:   rgba(255,255,255,0.04);
+  --text:             #C9D1D9;
+  --text-strong:      #F0F6FC;
+  --text-muted:       #8B949E;
+  --nav-text:         #C9D1D9;
+  --nav-hover-bg:     rgba(240,246,252,0.08);
+  --accent:           #F0A500;
+  --accent-bg:        rgba(240,165,0,0.12);
+  --accent-border:    rgba(240,165,0,0.35);
+  --border:           rgba(240,246,252,0.08);
+  --card-bg:          rgba(22,27,34,0.9);
+  --card-border:      rgba(240,246,252,0.07);
+  --card-shadow:      rgba(0,0,0,0.3);
+  --card-shadow-hover:rgba(0,0,0,0.5);
+  --btn-bg:           rgba(255,255,255,0.06);
+  --logo-icon-bg:     rgba(240,165,0,0.15);
+  --logo-icon-shadow: rgba(240,165,0,0.2);
+  --shadow:           rgba(0,0,0,0.5);
+  --scrollbar:        rgba(255,255,255,0.15);
+
+  /* ── Examiner / child tab variables ── */
+  /* Base surface & text */
+  --bg2:              #161B22;
+  --bg3:              #21262D;
+  --bg4:              #2D333B;
+  --txt1:             #F0F6FC;
+  --txt2:             #C9D1D9;
+  --txt3:             #8B949E;
+  --bdr:              rgba(240,246,252,0.1);
+  --bdr2:             rgba(240,246,252,0.06);
+
+  /* Semantic colours */
+  --gold:             #F0A500;
+  --gold-dim:         rgba(240,165,0,0.15);
+  --gold-border:      rgba(240,165,0,0.35);
+  --c-blue:           #58A6FF;
+  --c-blue-dim:       rgba(88,166,255,0.12);
+  --c-green:          #3FB950;
+  --c-green-dim:      rgba(63,185,80,0.12);
+  --c-red:            #F85149;
+  --c-red-dim:        rgba(248,81,73,0.12);
+  --c-orange:         #FFA657;
+  --c-purple:         #BC8CFF;
+  --c-teal:           #39D0D8;
+
+  /* EntryTab (--et-*) */
+  --et-bg:            #0D1117;
+  --et-bg2:           #161B22;
+  --et-bg3:           #21262D;
+  --et-bg4:           #2D333B;
+  --et-txt1:          #F0F6FC;
+  --et-txt2:          #C9D1D9;
+  --et-txt3:          #8B949E;
+  --et-bdr:           rgba(240,246,252,0.1);
+  --et-bdr2:          rgba(240,246,252,0.06);
+  --et-blu:           #58A6FF;
+  --et-blu-dim:       rgba(88,166,255,0.12);
+  --et-grn:           #3FB950;
+  --et-grn-dim:       rgba(63,185,80,0.12);
+  --et-red:           #F85149;
+  --et-red-dim:       rgba(248,81,73,0.12);
+  --et-gold:          #F0A500;
+  --et-gold-dim:      rgba(240,165,0,0.15);
+  --et-gold-bdr:      rgba(240,165,0,0.35);
+  --et-inp-bg:        #0D1117;
+  --et-inp-bdr:       rgba(240,246,252,0.15);
+  --et-inp-focus:     #58A6FF;
+  --et-pill-bg:       #21262D;
+  --et-pill-act-bg:   rgba(88,166,255,0.15);
+  --et-pill-act-bdr:  #58A6FF;
+  --et-pill-warn-bg:  rgba(248,81,73,0.1);
+  --et-pill-warn-bdr: rgba(248,81,73,0.4);
+  --et-step-bg:       rgba(88,166,255,0.12);
+  --et-step-color:    #58A6FF;
+  --et-fab-bg:        #238636;
+  --et-fab-hover:     #2EA043;
+  --et-fab-edit-bg:   #1F6FEB;
+  --et-fab-edit-hover:#388BFD;
+  --et-shadow:        rgba(0,0,0,0.4);
+
+  /* ViewerTab (--vt-*) */
+  --vt-bg:            #0D1117;
+  --vt-bg2:           #161B22;
+  --vt-bg3:           #21262D;
+  --vt-txt1:          #F0F6FC;
+  --vt-txt2:          #C9D1D9;
+  --vt-txt3:          #8B949E;
+  --vt-bdr:           rgba(240,246,252,0.1);
+  --vt-blu:           #58A6FF;
+  --vt-grn:           #3FB950;
+  --vt-red:           #F85149;
+  --vt-gold:          #F0A500;
+  --vt-inp-bg:        #0D1117;
+  --vt-inp-bdr:       rgba(240,246,252,0.15);
+  --vt-inp-focus:     #58A6FF;
+  --vt-pill-bg:       #21262D;
+  --vt-pill-act-bg:   rgba(88,166,255,0.15);
+  --vt-pill-act-bdr:  #58A6FF;
+  --vt-shadow:        rgba(0,0,0,0.4);
+}
+
+/* ── LIGHT THEME ────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* App-level */
+  --bg:               #F6F8FA;
+  --navbar:           rgba(255,255,255,0.92);
+  --mobile-menu-bg:   rgba(255,255,255,0.97);
+  --mobile-item-bg:   rgba(0,0,0,0.03);
+  --text:             #444D56;
+  --text-strong:      #0D1117;
+  --text-muted:       #6A737D;
+  --nav-text:         #444D56;
+  --nav-hover-bg:     rgba(13,17,23,0.05);
+  --accent:           #D4830A;
+  --accent-bg:        rgba(212,131,10,0.1);
+  --accent-border:    rgba(212,131,10,0.35);
+  --border:           #E1E4E8;
+  --card-bg:          #FFFFFF;
+  --card-border:      #E1E4E8;
+  --card-shadow:      rgba(0,0,0,0.06);
+  --card-shadow-hover:rgba(0,0,0,0.14);
+  --btn-bg:           rgba(0,0,0,0.05);
+  --logo-icon-bg:     rgba(212,131,10,0.1);
+  --logo-icon-shadow: rgba(212,131,10,0.15);
+  --shadow:           rgba(0,0,0,0.12);
+  --scrollbar:        rgba(0,0,0,0.18);
+
+  /* ── Examiner / child tab variables ── */
+  --bg2:              #FFFFFF;
+  --bg3:              #F6F8FA;
+  --bg4:              #EAECEF;
+  --txt1:             #0D1117;
+  --txt2:             #444D56;
+  --txt3:             #6A737D;
+  --bdr:              #D0D7DE;
+  --bdr2:             #E1E4E8;
+
+  --gold:             #D4830A;
+  --gold-dim:         rgba(212,131,10,0.1);
+  --gold-border:      rgba(212,131,10,0.35);
+  --c-blue:           #0969DA;
+  --c-blue-dim:       rgba(9,105,218,0.1);
+  --c-green:          #1A7F37;
+  --c-green-dim:      rgba(26,127,55,0.1);
+  --c-red:            #CF222E;
+  --c-red-dim:        rgba(207,34,46,0.1);
+  --c-orange:         #BC4C00;
+  --c-purple:         #8250DF;
+  --c-teal:           #0E7490;
+
+  /* EntryTab */
+  --et-bg:            #F6F8FA;
+  --et-bg2:           #FFFFFF;
+  --et-bg3:           #F6F8FA;
+  --et-bg4:           #EAECEF;
+  --et-txt1:          #0D1117;
+  --et-txt2:          #444D56;
+  --et-txt3:          #6A737D;
+  --et-bdr:           #D0D7DE;
+  --et-bdr2:          #E1E4E8;
+  --et-blu:           #0969DA;
+  --et-blu-dim:       rgba(9,105,218,0.1);
+  --et-grn:           #1A7F37;
+  --et-grn-dim:       rgba(26,127,55,0.1);
+  --et-red:           #CF222E;
+  --et-red-dim:       rgba(207,34,46,0.1);
+  --et-gold:          #D4830A;
+  --et-gold-dim:      rgba(212,131,10,0.1);
+  --et-gold-bdr:      rgba(212,131,10,0.35);
+  --et-inp-bg:        #FFFFFF;
+  --et-inp-bdr:       #D0D7DE;
+  --et-inp-focus:     #0969DA;
+  --et-pill-bg:       #F6F8FA;
+  --et-pill-act-bg:   rgba(9,105,218,0.1);
+  --et-pill-act-bdr:  #0969DA;
+  --et-pill-warn-bg:  rgba(207,34,46,0.07);
+  --et-pill-warn-bdr: rgba(207,34,46,0.4);
+  --et-step-bg:       rgba(9,105,218,0.08);
+  --et-step-color:    #0969DA;
+  --et-fab-bg:        #1A7F37;
+  --et-fab-hover:     #2DA44E;
+  --et-fab-edit-bg:   #0969DA;
+  --et-fab-edit-hover:#1A7F37;
+  --et-shadow:        rgba(0,0,0,0.1);
+
+  /* ViewerTab */
+  --vt-bg:            #F6F8FA;
+  --vt-bg2:           #FFFFFF;
+  --vt-bg3:           #F6F8FA;
+  --vt-txt1:          #0D1117;
+  --vt-txt2:          #444D56;
+  --vt-txt3:          #6A737D;
+  --vt-bdr:           #D0D7DE;
+  --vt-blu:           #0969DA;
+  --vt-grn:           #1A7F37;
+  --vt-red:           #CF222E;
+  --vt-gold:          #D4830A;
+  --vt-inp-bg:        #FFFFFF;
+  --vt-inp-bdr:       #D0D7DE;
+  --vt-inp-focus:     #0969DA;
+  --vt-pill-bg:       #F6F8FA;
+  --vt-pill-act-bg:   rgba(9,105,218,0.1);
+  --vt-pill-act-bdr:  #0969DA;
+  --vt-shadow:        rgba(0,0,0,0.1);
+}
+
+/* ── Global scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 999px;
+}
+
+/* ── Auth screen full-page overlay ─────────────────────────── */
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: auth-fade-in 0.3s ease;
+}
+
+@keyframes auth-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.auth-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 40px 36px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 40px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.auth-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--logo-icon-bg);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 4px 16px var(--logo-icon-shadow);
+  margin-bottom: 4px;
+}
+
+.auth-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: -0.03em;
+}
+
+.auth-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.auth-badge {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 12px var(--logo-icon-shadow);
+  margin-top: 4px;
+}
+
+.auth-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--logo-icon-shadow);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.auth-google-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.auth-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-top: -4px;
+}
+
+/* ── Token expiry warning snackbar ─────────────────────────── */
+.token-snackbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  z-index: 8888;
+  background: #2D333B;
+  border: 1px solid rgba(240,165,0,0.4);
+  color: #F0A500;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  animation: snack-in 0.3s ease;
+  pointer-events: none;
+}
+
+[data-theme="light"] .token-snackbar {
+  background: #FFFFFF;
+  border-color: rgba(212,131,10,0.4);
+  color: #D4830A;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+}
+
+@keyframes snack-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
