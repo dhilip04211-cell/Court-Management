@@ -591,6 +591,7 @@ body {
   transition: border-color .18s ease, box-shadow .18s ease;
   width: 100%;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .vt-inp:focus {
@@ -1276,6 +1277,7 @@ body {
   width: 100%;
   transition: border-color .18s, box-shadow .18s;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .et-inp:focus {
@@ -1916,6 +1918,7 @@ body {
   width: 100%;
   transition: border-color .18s, box-shadow .18s;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .inp:focus {
