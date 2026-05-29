@@ -3,9 +3,6 @@ import { useAuth } from "../App.jsx";
 import { SMAP as SMAP_DEFAULT } from "./constants/config.js";
 import { loadStationsFromSheet, loadAllData } from "./utils/sheets.js";
 import SectionBuilder from "./components/SectionBuilder.jsx";
-import NumPad2 from "./components/NumPad2.jsx";
-import DateNumPad from "./components/DateNumPad.jsx";
-import FIRNumPad from "./components/FIRNumPad.jsx";
 import EntryTab from "./tabs/EntryTab.jsx";
 import ViewerTab from "./tabs/ViewerTab.jsx";
 import FTCTab from "./tabs/FTCTab.jsx";
@@ -645,4 +642,4 @@ if (typeof document !== "undefined" && !document.getElementById("examiner-css"))
   document.head.appendChild(s);
 }
 
-export { SectionBuilder, NumPad2, DateNumPad, FIRNumPad };
+export { SectionBuilder };

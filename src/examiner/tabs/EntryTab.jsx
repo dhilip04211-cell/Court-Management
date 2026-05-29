@@ -83,10 +83,12 @@ export default function EntryTab({ db, setDb, tok, smap }) {
 
   function handleDateText(e) {
     const raw = e.target.value;
-    const incoming = raw.replace(/\./g, "");
-    const prev = dt.replace(/\./g, "");
-    const isDeleting = incoming.length < prev.length;
-    setDt(autoFormatDate(isDeleting ? incoming : raw));
+    const clean = raw.replace(/[^\d.]/g, "");
+    if (clean.length < dt.length) {
+      setDt(clean);
+    } else {
+      setDt(autoFormatDate(clean));
+    }
   }
 
   // Focus the FIR number input
