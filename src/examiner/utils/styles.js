@@ -179,14 +179,20 @@ tr:hover td{background:rgba(201,168,76,.04)}
 .confirm-box{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;margin-bottom:10px}
 
 /* ABSTRACT */
-.abs-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.abs-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .abs-tbl th{background:var(--bg3);color:var(--gold);padding:7px 8px;text-align:left;font-size:10px;border:1px solid var(--bdr);font-family:'JetBrains Mono',monospace}
 .abs-tbl td{padding:7px 8px;border:1px solid var(--bdr);color:var(--txt)}
 .abs-tbl tr:nth-child(even) td{background:rgba(255,255,255,.02)}
 .tot-row td{background:rgba(201,168,76,.09)!important;color:var(--gold);font-weight:700}
 .no-data{text-align:center;padding:28px;color:var(--txt3);font-size:13px}
 .yr-badge{display:inline-block;background:rgba(201,168,76,.15);color:var(--gold);padding:1px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;margin-left:4px}
-.abs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.abs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start}
+
+/* Ensure cards inside grid align to top (avoid out-of-line tiles) */
+.abs-grid .card{align-self:start}
+
+/* Allow table cells to wrap long content */
+.abs-tbl td{word-break:break-word;overflow-wrap:break-word}
 
 .search-wrap{position:relative;display:flex;align-items:center}
 .search-wrap .inp{padding-right:30px}
