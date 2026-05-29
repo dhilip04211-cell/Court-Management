@@ -824,6 +824,164 @@ tr:hover td{background:rgba(201,168,76,.04)}
 @media(max-width:480px){
   .ftc-confirm-grid{grid-template-columns:1fr}
 }
+  /* ============================================================
+   ABSTRACT TAB — abt-*
+   ============================================================ */
+
+/* Inner tab bar */
+.abt-root{}
+.abt-tabbar{
+  display:flex;
+  background:var(--bg2);
+  border:1px solid var(--bdr);
+  border-radius:var(--rl);
+  padding:4px;
+  gap:4px;
+  margin-bottom:12px;
+  overflow-x:auto;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.abt-tabbar::-webkit-scrollbar{display:none}
+.abt-tab{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:9px 12px;
+  border-radius:9px;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  border:none;
+  background:transparent;
+  color:var(--txt3);
+  font-family:'JetBrains Mono',monospace;
+  white-space:nowrap;
+  transition:all .15s;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+}
+.abt-tab:hover{color:var(--txt);background:var(--bg3)}
+.abt-tab-icon{font-size:13px}
+.abt-tab-active{
+  background:rgba(201,168,76,.14)!important;
+  color:var(--gold)!important;
+  box-shadow:inset 0 0 0 1px rgba(201,168,76,.3);
+}
+
+/* ── Pending FIR tab ── */
+.abt-pend-root{display:flex;flex-direction:column;gap:10px}
+.abt-st-bar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:10px 12px;
+  background:var(--bg2);
+  border:1px solid var(--bdr);
+  border-radius:var(--rl);
+}
+.abt-st-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:7px 12px;
+  border-radius:22px;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  border:1.5px solid var(--bdr);
+  background:var(--bg3);
+  color:var(--txt2);
+  transition:all .15s;
+  font-family:'JetBrains Mono',monospace;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  white-space:nowrap;
+}
+.abt-st-chip:hover{border-color:var(--gold-d);color:var(--txt)}
+.abt-st-active{border-color:var(--gold)!important;background:rgba(201,168,76,.12)!important;color:var(--gold)!important}
+.abt-st-name{}
+.abt-st-cnt{background:rgba(255,255,255,.08);border-radius:7px;padding:1px 7px;font-size:10px;color:var(--txt2)}
+.abt-st-active .abt-st-cnt{background:var(--gold);color:#000}
+.abt-st-warn{font-size:9px;color:var(--red);background:rgba(248,81,73,.12);border-radius:6px;padding:1px 5px}
+
+.abt-pend-panel{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rl);padding:12px}
+.abt-pend-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.abt-pend-title{font-size:13px;font-weight:700;color:var(--gold)}
+.abt-pend-count{font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',monospace}
+
+.abt-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--txt2);align-items:center}
+.abt-leg-item{display:flex;align-items:center;gap:5px}
+
+/* Date badges */
+.abt-date-badge{
+  display:inline-block;
+  padding:2px 7px;
+  border-radius:5px;
+  font-size:11px;
+  font-weight:700;
+  font-family:'JetBrains Mono',monospace;
+  white-space:nowrap;
+}
+.abt-date-bad{background:rgba(248,81,73,.12);color:var(--red);border:1px solid rgba(248,81,73,.3)}
+.abt-date-missing{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
+
+/* Row tints for date issues */
+.abt-row-bad td{background:rgba(248,81,73,.04)!important}
+.abt-row-missing td{background:rgba(201,168,76,.04)!important}
+
+/* CR number badges */
+.abt-cr-bad{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-family:'JetBrains Mono',monospace;background:rgba(248,81,73,.12);color:var(--red);border:1px solid rgba(248,81,73,.25)}
+.abt-cr-good{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-family:'JetBrains Mono',monospace;background:rgba(63,185,80,.12);color:var(--grn);border:1px solid rgba(63,185,80,.25)}
+
+/* ── Maintenance tab ── */
+.abt-maint-root{display:flex;flex-direction:column;gap:10px}
+
+.abt-scan-card{
+  background:var(--bg2);
+  border:1px solid var(--bdr);
+  border-radius:var(--rl);
+  padding:14px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.abt-scan-icon{font-size:24px;flex-shrink:0}
+.abt-scan-body{flex:1;min-width:0}
+.abt-scan-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.abt-scan-sub{font-size:11px;color:var(--txt3);line-height:1.5}
+
+.abt-maint-empty{text-align:center;padding:40px 20px;color:var(--txt3)}
+.abt-maint-empty-icon{font-size:32px;margin-bottom:10px;opacity:.4}
+.abt-maint-empty-title{font-size:14px;font-weight:700;color:var(--txt2);margin-bottom:4px}
+.abt-maint-empty-sub{font-size:12px}
+
+.abt-issue-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+.abt-issue-chip{
+  background:var(--bg2);
+  border:1px solid var(--bdr);
+  border-radius:var(--rl);
+  padding:12px;
+  text-align:center;
+}
+.abt-issue-num{font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:2px}
+.abt-issue-lbl{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;font-family:'JetBrains Mono',monospace}
+.abt-issue-red{border-color:rgba(248,81,73,.3);background:rgba(248,81,73,.05)}
+.abt-issue-red .abt-issue-num{color:var(--red)}
+.abt-issue-green{border-color:rgba(63,185,80,.3);background:rgba(63,185,80,.05)}
+.abt-issue-green .abt-issue-num{color:var(--grn)}
+.abt-issue-amber{border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.05)}
+.abt-issue-amber .abt-issue-num{color:var(--gold)}
+
+@media(max-width:480px){
+  .abt-tab{padding:8px 8px;font-size:10px;gap:4px}
+  .abt-issue-summary{grid-template-columns:repeat(3,1fr);gap:6px}
+  .abt-issue-num{font-size:20px}
+}
 .vt-fir-nv-heading,
 .cd-nv-heading {
   font-size: 11px;
