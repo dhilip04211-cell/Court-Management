@@ -74,8 +74,7 @@ const TABS = [
    EXAMINER
 ═══════════════════════════════════════════════════════════ */
 export default function Examiner() {
-  const { tok, requestSheetsToken } = useAuth();
-  const [sheetsAuthDone, setSheetsAuthDone] = useState(!!tok);
+  const { tok } = useAuth();
 
   const [db, setDb] = useState(null);
   const [smap, setSmap] = useState(SMAP_DEFAULT);
@@ -98,6 +97,7 @@ export default function Examiner() {
   }
 
   /* ── Animated progress helpers ─────────────────────────── */
+  /* Smoothly advance the bar to a target value */
   const progRef = useRef(0);
   const animRef = useRef(null);
 
@@ -115,24 +115,12 @@ export default function Examiner() {
     animRef.current = requestAnimationFrame(step);
   }
 
-  /* ── Auto-request Sheets token on mount (silent if already consented) ── */
+  /* ── Load data ──────────────────────────────────────────── */
   useEffect(() => {
-    if (tok) { setSheetsAuthDone(true); return; }
-    requestSheetsToken().then((newTok) => {
-      if (newTok) setSheetsAuthDone(true);
-    });
-  }, []);
-
-  /* ── Manual sign-in handler shown if silent token fails ── */
-  async function handleSignInForSheets() {
-    const newTok = await requestSheetsToken();
-    if (newTok) setSheetsAuthDone(true);
-  }
-
-  /* ── Load data once we have a Sheets token ─────────────── */
-  useEffect(() => {
-    if (tok && !db && loadPhase === "idle") fetchAll(tok);
-  }, [tok, sheetsAuthDone]);
+    // Trigger fetch when token arrives (or changes) and we haven't loaded yet.
+    // Also re-triggers if the component re-mounts after a retry (loadPhase reset to "idle").
+    if (tok && loadPhase === "idle") fetchAll(tok);
+  }, [tok, loadPhase]);
 
   async function fetchAll(token) {
     progRef.current = 0;
@@ -173,32 +161,20 @@ export default function Examiner() {
       setLoadPhase("done");
     } catch (e) {
       console.error("Load error:", e);
-      setErrorMsg("Failed to load data — check network or permissions.");
+      setErrorMsg(
+        e?.message
+          ? `Failed to load data: ${e.message}`
+          : "Failed to load data — check network or permissions."
+      );
       setLoadPhase("error");
     }
   }
 
   function handleRetry() {
     setDb(null);
-    setLoadPhase("idle");
     setErrorMsg("");
-    if (tok) fetchAll(tok);
-  }
-
-  /* ── NO SHEETS TOKEN — show sign-in button ─────────────── */
-  if (!tok && !sheetsAuthDone) {
-    return (
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,padding:"60px 20px",textAlign:"center"}}>
-        <div style={{fontSize:36}}>📊</div>
-        <div style={{fontSize:16,fontWeight:700,color:"var(--gold)"}}>Google Sheets Access Required</div>
-        <div style={{fontSize:13,color:"var(--txt2)",maxWidth:360}}>
-          Click below to allow this app to read your Google Sheets data.
-        </div>
-        <button className="btn btn-g" onClick={handleSignInForSheets}>
-          Connect Google Sheets
-        </button>
-      </div>
-    );
+    // Reset to "idle" last — this is what re-triggers the useEffect
+    setLoadPhase("idle");
   }
 
   /* ── LOADING SCREEN ─────────────────────────────────────── */
