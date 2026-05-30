@@ -7,6 +7,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { CLIENT_ID, SCOPE } from "./examiner/constants/config.js";
 
 /* ═══════════════════════════════════════════════════════════
@@ -571,6 +572,7 @@ export default function App() {
         `}</style>
 
         <AppShell dark={dark} setDark={setDark} />
+        <Analytics />
       </HashRouter>
     </AuthProvider>
   );

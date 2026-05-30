@@ -4,7 +4,6 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,13 +12,12 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
-
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1"
   },
-
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
