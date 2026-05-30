@@ -8,6 +8,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CLIENT_ID, SCOPE } from "./examiner/constants/config.js";
 
 /* ═══════════════════════════════════════════════════════════
@@ -573,6 +574,7 @@ export default function App() {
 
         <AppShell dark={dark} setDark={setDark} />
         <Analytics />
+        <SpeedInsights />
       </HashRouter>
     </AuthProvider>
   );
