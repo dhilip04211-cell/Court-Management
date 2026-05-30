@@ -7,9 +7,9 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
-import { AuthProvider, useAuth } from "./AuthContext.jsx";
-import LoginPage from "./LoginPage.jsx";
-import ProtectedRoute from "./ProtectedRoute.jsx";
+import { AuthProvider, useAuth } from "./Authcontext.jsx";
+import LoginPage from "./Loginpage.jsx";
+import ProtectedRoute from "./Protectedroute.jsx";
 
 /* ─── AUTO IMPORT (Vite glob — excludes App/main/Auth/Login/ProtectedRoute) ─── */
 const autoPages = import.meta.glob(
