@@ -1,54 +1,46 @@
 import { SID } from "../constants/config.js";
 import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
-// Determine API base URL for different environments
-const getApiBase = () => {
-  if (typeof window === "undefined") return "";
-  const loc = window.location;
-  if (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") {
-    return `http://${loc.hostname}:${loc.port}`;
+// ─── Always use relative paths (/api/…) so it works on localhost (via Vite
+//     proxy or the dev server), Vercel preview, and production without any
+//     host/port guessing.
+const API       = "/api/sheets";
+const API_OPS   = "/api/sheets-ops";
+
+// ─── Internal fetch helper – throws on HTTP errors so callers can catch them
+async function apiFetch(url, body) {
+  const r = await fetch(url, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+  if (!r.ok) {
+    // Try to surface the server-side error message
+    let detail = "";
+    try { detail = (await r.json()).error || (await r.text()); } catch (_) {}
+    throw new Error(`API ${url} → ${r.status} ${r.statusText}${detail ? ": " + detail : ""}`);
   }
-  // For Vercel deployments, use same origin
-  return `${loc.protocol}//${loc.host}`;
-};
+  return r.json();
+}
+
+// ────────────────────────────────────────────────────────────
+//  Public sheet helpers
+// ────────────────────────────────────────────────────────────
 
 export async function sheetsGet(tok, sid, range) {
   try {
-    const apiBase = getApiBase();
-    const r = await fetch(`${apiBase}/api/sheets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        range,
-        method: "GET",
-      }),
-    });
-    if (!r.ok) return [];
-    const d = await r.json();
+    const d = await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "GET" });
     return d.values || [];
   } catch (e) {
     console.error("sheetsGet error:", e);
-    return [];
+    throw e;   // ← re-throw so fetchAll() in Examiner shows the error screen
   }
 }
 
 export async function sheetsUpdate(tok, sid, range, vals) {
   try {
-    const apiBase = getApiBase();
-    const r = await fetch(`${apiBase}/api/sheets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        range,
-        method: "PUT",
-        values: vals,
-      }),
-    });
-    return r.ok;
+    await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "PUT", values: vals });
+    return true;
   } catch (e) {
     console.error("sheetsUpdate error:", e);
     return false;
@@ -57,19 +49,8 @@ export async function sheetsUpdate(tok, sid, range, vals) {
 
 export async function sheetsAppend(tok, sid, range, vals) {
   try {
-    const apiBase = getApiBase();
-    const r = await fetch(`${apiBase}/api/sheets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        range,
-        method: "APPEND",
-        values: vals,
-      }),
-    });
-    return r.ok;
+    await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "APPEND", values: vals });
+    return true;
   } catch (e) {
     console.error("sheetsAppend error:", e);
     return false;
@@ -78,18 +59,7 @@ export async function sheetsAppend(tok, sid, range, vals) {
 
 export async function getSheetMeta(tok, sid) {
   try {
-    const apiBase = getApiBase();
-    const m = await fetch(`${apiBase}/api/sheets-ops`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        operation: "getMeta",
-      }),
-    });
-    if (!m.ok) return null;
-    return await m.json();
+    return await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "getMeta" });
   } catch (e) {
     console.error("getSheetMeta error:", e);
     return null;
@@ -98,19 +68,7 @@ export async function getSheetMeta(tok, sid) {
 
 export async function getSheetIdByName(tok, sid, tabName) {
   try {
-    const apiBase = getApiBase();
-    const response = await fetch(`${apiBase}/api/sheets-ops`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        operation: "getSheetIdByName",
-        tabName,
-      }),
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
+    const data = await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "getSheetIdByName", tabName });
     return data.sheetId;
   } catch (e) {
     console.error("getSheetIdByName error:", e);
@@ -120,8 +78,7 @@ export async function getSheetIdByName(tok, sid, tabName) {
 
 /**
  * Load tab names from the FIR spreadsheet as SMAP.
- * Skips known non-station tabs (Sheet1, Sheet2, etc. that are clearly not stations).
- * Returns array of { sh, lb } where sh = tab name, lb = tab name (display label).
+ * Skips known non-station tabs (Sheet1-Sheet6).
  */
 export async function loadStationsFromSheet(tok) {
   const meta = await getSheetMeta(tok, SID.fir);
@@ -137,21 +94,8 @@ export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
   try {
     const sheetId = await getSheetIdByName(tok, sid, tabName);
     if (sheetId === null) return false;
-    
-    const apiBase = getApiBase();
-    const r = await fetch(`${apiBase}/api/sheets-ops`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        operation: "deleteRow",
-        tabName,
-        oneBasedRow,
-        sheetId,
-      }),
-    });
-    return r.ok;
+    await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "deleteRow", tabName, oneBasedRow, sheetId });
+    return true;
   } catch (e) {
     console.error("sheetsDeleteRow error:", e);
     return false;
@@ -162,21 +106,8 @@ export async function sheetsInsertRow(tok, sid, tabName, oneBasedRow) {
   try {
     const sheetId = await getSheetIdByName(tok, sid, tabName);
     if (sheetId === null) return false;
-    
-    const apiBase = getApiBase();
-    const r = await fetch(`${apiBase}/api/sheets-ops`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok,
-        spreadsheetId: sid,
-        operation: "insertRow",
-        tabName,
-        oneBasedRow,
-        sheetId,
-      }),
-    });
-    return r.ok;
+    await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "insertRow", tabName, oneBasedRow, sheetId });
+    return true;
   } catch (e) {
     console.error("sheetsInsertRow error:", e);
     return false;
@@ -230,41 +161,42 @@ export async function loadAllData(tok, smap) {
     fir[s.sh] = await loadFIRSheet(tok, s.sh);
   }
 
-  const pr = await sheetsGet(tok, SID.pending, "Sheet1!A:L");
+  const pr   = await sheetsGet(tok, SID.pending,  "Sheet1!A:L");
+  const dr2  = await sheetsGet(tok, SID.disposal, "Sheet1!A:L");
+  const nr   = await sheetsGet(tok, SID.nonval,   "Sheet1!A:G");
+  const cnr  = await sheetsGet(tok, SID.casenum,  "Sheet1!A:M");
+
   const pend = pr.slice(1)
     .map((r, i) => ({
-      sl: r[0] || "", cn: r[1] || "", pt: r[2] || "", adv: r[3] || "",
-      dreg: r[4] || "", nxt: r[5] || "", pur: r[6] || "", sec: r[7] || "",
-      sta: r[8] || "", fn: r[9] || "", nat: r[10] || "", des: r[11] || "",
+      sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
+      dreg: r[4]||"", nxt: r[5]||"", pur: r[6]||"", sec: r[7]||"",
+      sta: r[8]||"", fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
 
-  const dr2 = await sheetsGet(tok, SID.disposal, "Sheet1!A:L");
   const disp = dr2.slice(1)
     .map((r, i) => ({
-      sl: r[0] || "", cn: r[1] || "", pt: r[2] || "", adv: r[3] || "",
-      dreg: r[4] || "", ddec: r[5] || "", dnat: r[6] || "", sec: r[7] || "",
-      sta: r[8] || "", fn: r[9] || "", nat: r[10] || "", des: r[11] || "",
+      sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
+      dreg: r[4]||"", ddec: r[5]||"", dnat: r[6]||"", sec: r[7]||"",
+      sta: r[8]||"", fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
 
-  const nr = await sheetsGet(tok, SID.nonval, "Sheet1!A:G");
   const nv = nr.slice(1)
     .map((r, i) => ({
-      sno: r[0] || "", cn: r[1] || "", fn: r[2] || "", rp: r[3] || "",
-      sta: r[4] || "", desc: r[5] || "", rem: r[6] || "",
+      sno: r[0]||"", cn: r[1]||"", fn: r[2]||"", rp: r[3]||"",
+      sta: r[4]||"", desc: r[5]||"", rem: r[6]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
 
-  const cnr = await sheetsGet(tok, SID.casenum, "Sheet1!A:M");
   const cnum = cnr.slice(1)
     .map((r, i) => ({
-      fn: r[0] || "", sta: r[1] || "", sec: r[2] || "", dr: r[3] || "",
-      cn: r[4] || "", pt: r[5] || "", adv: r[6] || "", dreg: r[7] || "",
-      nxt: r[8] || "", type: r[9] || "", sec2: r[10] || "", nat: r[11] || "", des: r[12] || "",
+      fn: r[0]||"", sta: r[1]||"", sec: r[2]||"", dr: r[3]||"",
+      cn: r[4]||"", pt: r[5]||"", adv: r[6]||"", dreg: r[7]||"",
+      nxt: r[8]||"", type: r[9]||"", sec2: r[10]||"", nat: r[11]||"", des: r[12]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
@@ -273,18 +205,13 @@ export async function loadAllData(tok, smap) {
 }
 
 /**
- * insertFIRSorted — FAST: 3 API calls always
- * append to bottom → read once → batch rewrite sl
+ * insertFIRSorted — append → read → sort → renumber changed rows only
  */
-export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existingRows) {
+export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
   try {
-    const apiBase = getApiBase();
-    
-    // Append new row
     const appendRes = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [["", newCr, newSec, newDr]]);
     if (!appendRes) return { ok: false, ri: -1 };
 
-    // Read all rows
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     const dataRows = [];
     for (let i = 0; i < rawRows.length; i++) {
@@ -293,7 +220,7 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
         dataRows.push({
           ri: i + 1, cr: b,
           sec: (rawRows[i][2] || "").toString().trim(),
-          dr: (rawRows[i][3] || "").toString().trim(),
+          dr:  (rawRows[i][3] || "").toString().trim(),
         });
       }
     }
@@ -305,35 +232,12 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
     }
     const newSl = dataRows.findIndex(r => r.ri === newRi) + 1;
 
-    // Optimization: only update the serial numbers that have actually changed
-    const updates = [];
+    // Only update serial-number cells that actually changed
     for (let i = 0; i < dataRows.length; i++) {
       const expectedSl = String(i + 1);
-      const currentSl = (rawRows[dataRows[i].ri - 1][0] || "").toString().trim();
+      const currentSl  = (rawRows[dataRows[i].ri - 1][0] || "").toString().trim();
       if (currentSl !== expectedSl) {
-        updates.push({ range: `${tabName}!A${dataRows[i].ri}`, values: [[i + 1]] });
-      }
-    }
-
-    if (updates.length > 0) {
-      await fetch(`${apiBase}/api/sheets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: tok,
-          spreadsheetId: SID.fir,
-          operation: "batchUpdate",
-          requests: updates.map(u => ({
-            updateCells: {
-              range: { sheetId: 0 }, // This will be handled differently
-            }
-          })),
-        }),
-      });
-      
-      // Alternative: use individual updates instead
-      for (const update of updates) {
-        await sheetsUpdate(tok, SID.fir, update.range, update.values);
+        await sheetsUpdate(tok, SID.fir, `${tabName}!A${dataRows[i].ri}`, [[i + 1]]);
       }
     }
 
@@ -345,27 +249,19 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
 }
 
 /**
- * Batch renumber all sl for a tab — 2 API calls
+ * Batch renumber all sl for a tab
  */
 export async function renumberFIRSheet(tok, tabName) {
   try {
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     let sl = 1;
-    const updates = [];
     for (let i = 0; i < rawRows.length; i++) {
       const b = (rawRows[i][1] || "").toString().trim();
       if (isValidFIRCell(b)) {
-        updates.push({ range: `${tabName}!A${i + 1}`, values: [[sl++]] });
+        await sheetsUpdate(tok, SID.fir, `${tabName}!A${i + 1}`, [[sl++]]);
       }
     }
-    if (!updates.length) return 0;
-    
-    // Apply updates
-    for (const update of updates) {
-      await sheetsUpdate(tok, SID.fir, update.range, update.values);
-    }
-    
-    return updates.length;
+    return sl - 1;
   } catch (e) {
     console.error("renumberFIRSheet error:", e);
     return 0;

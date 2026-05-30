@@ -74,7 +74,8 @@ const TABS = [
    EXAMINER
 ═══════════════════════════════════════════════════════════ */
 export default function Examiner() {
-  const { tok } = useAuth();
+  const { tok, requestSheetsToken } = useAuth();
+  const [sheetsAuthDone, setSheetsAuthDone] = useState(!!tok);
 
   const [db, setDb] = useState(null);
   const [smap, setSmap] = useState(SMAP_DEFAULT);
@@ -97,7 +98,6 @@ export default function Examiner() {
   }
 
   /* ── Animated progress helpers ─────────────────────────── */
-  /* Smoothly advance the bar to a target value */
   const progRef = useRef(0);
   const animRef = useRef(null);
 
@@ -115,10 +115,24 @@ export default function Examiner() {
     animRef.current = requestAnimationFrame(step);
   }
 
-  /* ── Load data ──────────────────────────────────────────── */
+  /* ── Auto-request Sheets token on mount (silent if already consented) ── */
+  useEffect(() => {
+    if (tok) { setSheetsAuthDone(true); return; }
+    requestSheetsToken().then((newTok) => {
+      if (newTok) setSheetsAuthDone(true);
+    });
+  }, []);
+
+  /* ── Manual sign-in handler shown if silent token fails ── */
+  async function handleSignInForSheets() {
+    const newTok = await requestSheetsToken();
+    if (newTok) setSheetsAuthDone(true);
+  }
+
+  /* ── Load data once we have a Sheets token ─────────────── */
   useEffect(() => {
     if (tok && !db && loadPhase === "idle") fetchAll(tok);
-  }, [tok]);
+  }, [tok, sheetsAuthDone]);
 
   async function fetchAll(token) {
     progRef.current = 0;
@@ -169,6 +183,22 @@ export default function Examiner() {
     setLoadPhase("idle");
     setErrorMsg("");
     if (tok) fetchAll(tok);
+  }
+
+  /* ── NO SHEETS TOKEN — show sign-in button ─────────────── */
+  if (!tok && !sheetsAuthDone) {
+    return (
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,padding:"60px 20px",textAlign:"center"}}>
+        <div style={{fontSize:36}}>📊</div>
+        <div style={{fontSize:16,fontWeight:700,color:"var(--gold)"}}>Google Sheets Access Required</div>
+        <div style={{fontSize:13,color:"var(--txt2)",maxWidth:360}}>
+          Click below to allow this app to read your Google Sheets data.
+        </div>
+        <button className="btn btn-g" onClick={handleSignInForSheets}>
+          Connect Google Sheets
+        </button>
+      </div>
+    );
   }
 
   /* ── LOADING SCREEN ─────────────────────────────────────── */
