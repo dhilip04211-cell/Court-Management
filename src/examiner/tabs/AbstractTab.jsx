@@ -192,11 +192,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════════════════════ */
   async function doScan() {
     setScanning(true); setIssues(null); setMaintMsg(null); setRenumMsg(null);
-    const concat = [], dateBad = [], slBad = [];
+    const concat = [], dateBad = [], slBad = [], firOOO = [];
 
     for (const s of SMAP) {
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
       let expectedSl = 1;
+      let lastFirSortKey = -1;
       for (let i = 0; i < raw.length; i++) {
         const a = (raw[i][0] || "").toString().trim();
         const b = (raw[i][1] || "").toString().trim();
@@ -222,6 +223,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm, dr: d, issue: "format" });
         }
 
+        // FIR order issue?
+        const currKey = firSortKey(norm);
+        if (lastFirSortKey > 0 && currKey < lastFirSortKey) {
+          firOOO.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm });
+        }
+        lastFirSortKey = currKey;
+
         // Serial number?
         const slNum = parseInt(a, 10);
         if (a && !isNaN(slNum) && slNum !== expectedSl)
@@ -231,7 +239,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     }
     // Sort concatenated CR numbers by fixed value in ascending order by default
     concat.sort((a, b) => firSortKey(a.fixed) - firSortKey(b.fixed));
-    setIssues({ concat, date: dateBad, sl: slBad });
+    setIssues({ concat, date: dateBad, sl: slBad, fir: firOOO });
     setScanning(false);
   }
 
@@ -865,6 +873,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <div className="abt-issue-num">{issues.date.length}</div>
                   <div className="abt-issue-lbl">Date Issues</div>
                 </div>
+                <div className={`abt-issue-chip ${(issues.fir && issues.fir.length > 0) ? "abt-issue-red" : "abt-issue-green"}`}>
+                  <div className="abt-issue-num">{issues.fir ? issues.fir.length : 0}</div>
+                  <div className="abt-issue-lbl">FIR Out of Order</div>
+                </div>
                 <div className={`abt-issue-chip ${issues.sl.length > 0 ? "abt-issue-amber" : "abt-issue-green"}`}>
                   <div className="abt-issue-num">{issues.sl.length}</div>
                   <div className="abt-issue-lbl">Sl. Out of Order</div>
@@ -872,7 +884,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               </div>
 
               {/* All clear */}
-              {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && (
+              {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && (!issues.fir || issues.fir.length === 0) && (
                 <div className="msg-ok" style={{ marginBottom: 10 }}>✓ All sheets are clean — no data issues found.</div>
               )}
 
@@ -937,6 +949,35 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                               </span>
                             </td>
                             <td style={{ fontSize: 10, color: "var(--txt3)" }}>{iss.issue === "missing" ? "No date entered" : "Wrong format"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* FIR out-of-order detection */}
+              {issues.fir && issues.fir.length > 0 && (
+                <div className="card">
+                  <div className="ctitle">⚠ FIR Numbers Out of Order
+                    <span style={{ marginLeft: "auto", fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
+                      Manual review needed
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
+                    These FIRs are not in ascending order by year/number. Sheets must have FIRs sorted chronologically.
+                  </div>
+                  <div className="tbl-wrap">
+                    <table className="abs-tbl">
+                      <thead><tr><th>Station</th><th>Row</th><th>CR No.</th><th>Issue</th></tr></thead>
+                      <tbody>
+                        {issues.fir.map((iss, i) => (
+                          <tr key={i}>
+                            <td style={{ fontSize: 11 }}>{iss.lb}</td>
+                            <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
+                            <td className="mono" style={{ color: "var(--gold)" }}>{iss.cr}</td>
+                            <td><span className="abt-date-badge abt-date-bad">Out of order</span></td>
                           </tr>
                         ))}
                       </tbody>
