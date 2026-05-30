@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { SID } from "../constants/config.js";
 import { firMatch } from "../utils/helpers.js";
 import { sheetsAppend, sheetsDeleteRow, loadAllData } from "../utils/sheets.js";
@@ -17,12 +17,16 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  // New sub-tab state
+  // Sub-tab state
   const [subTab, setSubTab] = useState("move");
   const [detSearch, setDetSearch] = useState("");
   const [detStation, setDetStation] = useState("ALL");
   const [detType, setDetType] = useState("ALL");
   const [activeDetailCase, setActiveDetailCase] = useState(null);
+
+  // ── BUG FIX: track whether cnum has been refreshed for details tab ──
+  const [cnumLoaded, setCnumLoaded] = useState(false);
+  const [cnumLoading, setCnumLoading] = useState(false);
 
   const sNum = fn ? String(parseInt(fn, 10) || fn) : "";
   const displayFIR = sNum && yr ? `${sNum}/${yr}` : sNum;
@@ -53,6 +57,25 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     setSearched(false); setSelSt(null); setSelCase(null); setConfirming(false);
   }
 
+  // ── BUG FIX: load cnum data when switching to details sub-tab ──
+  const handleSubTabChange = useCallback(async (tab) => {
+    setSubTab(tab);
+    if (tab === "details" && !cnumLoaded && tok) {
+      setCnumLoading(true);
+      try {
+        const fresh = await loadAllData(tok, SMAP);
+        if (fresh) {
+          setDb(fresh);
+          setCnumLoaded(true);
+        }
+      } catch (e) {
+        console.error("Failed to load cnum data:", e);
+      } finally {
+        setCnumLoading(false);
+      }
+    }
+  }, [cnumLoaded, tok, SMAP, setDb]);
+
   // Stations that contain this FIR
   const stationHits = searched && sNum && yr
     ? SMAP.filter(s => (db.fir[s.sh] || []).some(r => firMatch(r.cr, sNum, yr)))
@@ -64,9 +87,18 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
   const stObj = selSt ? SMAP.find(s => s.sh === selSt) : null;
 
+  // ── BUG FIX: also filter allCases by station so cases from other stations
+  //    sharing the same FIR number don't bleed in ──
   const allCases = selSt ? [
-    ...db.pend.filter(c => firMatch(c.fn, sNum, yr)).map(c => ({ ...c, _type: "pending" })),
-    ...db.disp.filter(c => firMatch(c.fn, sNum, yr)).map(c => ({ ...c, _type: "disposal" })),
+    ...db.pend
+      .filter(c => firMatch(c.fn, sNum, yr))
+      // include if case station matches selected station, or if sta is unset
+      .filter(c => !c.sta || SMAP.find(s => s.sh === selSt)?.lb === c.sta || c.sta === selSt)
+      .map(c => ({ ...c, _type: "pending" })),
+    ...db.disp
+      .filter(c => firMatch(c.fn, sNum, yr))
+      .filter(c => !c.sta || SMAP.find(s => s.sh === selSt)?.lb === c.sta || c.sta === selSt)
+      .map(c => ({ ...c, _type: "disposal" })),
   ] : [];
 
   async function execute() {
@@ -74,10 +106,14 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     setBusy(true);
     setMsg({ type: "loading", text: "Processing…" });
     const stLb = stObj?.lb || selSt;
+
+    // ── BUG FIX: normalise _type → "pending"/"disposal" consistently ──
+    const caseType = (selCase._type || "").toLowerCase().trim();
+
     const row = [
       `${sNum}/${yr}`, stLb, firRow.sec || "", firRow.dr || "",
       selCase.cn || "", selCase.pt || "", selCase.adv || "", selCase.dreg || "",
-      selCase.nxt || selCase.ddec || "", selCase._type || "",
+      selCase.nxt || selCase.ddec || "", caseType,
       selCase.sec || "", selCase.nat || "", selCase.des || "",
     ];
     const saved = await sheetsAppend(tok, SID.casenum, "Sheet1!A:M", [row]);
@@ -111,7 +147,8 @@ export default function FTCTab({ db, setDb, tok, smap }) {
           adv: selCase.adv || "",
           dreg: selCase.dreg || "",
           nxt: selCase.nxt || selCase.ddec || "",
-          type: selCase._type || "",
+          // ── BUG FIX: store normalised type ──
+          type: caseType,
           sec2: selCase.sec || "",
           nat: selCase.nat || "",
           des: selCase.des || "",
@@ -119,11 +156,12 @@ export default function FTCTab({ db, setDb, tok, smap }) {
       }));
     }
 
-    // Live reload from Google Sheets!
+    // Live reload from Google Sheets
     setMsg({ type: "loading", text: "Syncing live data from Google Sheets..." });
     const fresh = await loadAllData(tok, SMAP);
     if (fresh) {
       setDb(fresh);
+      setCnumLoaded(true); // mark as fresh so details tab won't re-fetch
       setMsg({ type: "ok", text: `✓ FIR ${displayFIR} successfully moved & synced.` });
     } else {
       setMsg({ type: "ok", text: `✓ FIR ${displayFIR} moved (offline sync).` });
@@ -137,10 +175,15 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     return [...new Set(list)].sort();
   }, [db.cnum]);
 
+  // ── BUG FIX: normalise type comparison to lowercase, trim whitespace ──
   const filteredCnum = useMemo(() => {
     return db.cnum.filter(r => {
       if (detStation !== "ALL" && r.sta !== detStation) return false;
-      if (detType !== "ALL" && (r.type || "").toLowerCase() !== detType.toLowerCase()) return false;
+      if (detType !== "ALL") {
+        const rType = (r.type || "").toLowerCase().trim();
+        const dType = detType.toLowerCase().trim();
+        if (rType !== dType) return false;
+      }
       if (detSearch) {
         const q = detSearch.toLowerCase();
         const matches =
@@ -150,7 +193,9 @@ export default function FTCTab({ db, setDb, tok, smap }) {
           (r.sec || "").toLowerCase().includes(q) ||
           (r.sec2 || "").toLowerCase().includes(q) ||
           (r.adv || "").toLowerCase().includes(q) ||
-          (r.sta || "").toLowerCase().includes(q);
+          (r.sta || "").toLowerCase().includes(q) ||
+          (r.nat || "").toLowerCase().includes(q) ||
+          (r.des || "").toLowerCase().includes(q);
         if (!matches) return false;
       }
       return true;
@@ -160,13 +205,13 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   return (
     <div className="vt-root" style={{ padding: "0 0 32px" }}>
 
-      {/* ── Inner tab bar ────────────────────────────────────────────────── */}
+      {/* ── Inner tab bar ── */}
       <div className="abt-tabbar">
-        <button className={`abt-tab${subTab === "move" ? " abt-tab-active" : ""}`} onClick={() => setSubTab("move")}>
+        <button className={`abt-tab${subTab === "move" ? " abt-tab-active" : ""}`} onClick={() => handleSubTabChange("move")}>
           <span className="abt-tab-icon">🔀</span>
           <span>Move FIR</span>
         </button>
-        <button className={`abt-tab${subTab === "details" ? " abt-tab-active" : ""}`} onClick={() => setSubTab("details")}>
+        <button className={`abt-tab${subTab === "details" ? " abt-tab-active" : ""}`} onClick={() => handleSubTabChange("details")}>
           <span className="abt-tab-icon">📂</span>
           <span>Case Numbered Details</span>
         </button>
@@ -235,7 +280,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                 <span className="vt-summary-fir">{displayFIR}</span>
               </div>
 
-              {/* ── Section: Station selector ── */}
+              {/* ── Station selector ── */}
               <div className="vt-section">
                 <div className="vt-section-header">
                   <div className="vt-section-icon vt-icon-fir">📋</div>
@@ -264,7 +309,6 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                 {selSt && firRow && (
                   <div className="vt-panel vt-panel-fir" style={{ marginTop: 0 }}>
 
-                    {/* FIR info */}
                     <div className="ftc-fir-info">
                       <div className="ftc-fir-cr">{firRow.cr}</div>
                       <div className="ftc-fir-fields">
@@ -403,12 +447,36 @@ export default function FTCTab({ db, setDb, tok, smap }) {
       {/* ── Case Numbered Details sub-tab ── */}
       {subTab === "details" && (
         <div>
+          {/* ── BUG FIX: loading indicator while fetching cnum data ── */}
+          {cnumLoading && (
+            <div className="et-msg et-msg-info" style={{ margin: "12px 14px 0" }}>
+              ⏳ Loading Case Numbered records…
+            </div>
+          )}
+
+          {/* ── BUG FIX: refresh button for stale data ── */}
+          {!cnumLoading && (
+            <div style={{ display: "flex", justifyContent: "flex-end", margin: "10px 14px 0" }}>
+              <button
+                className="btn btn-o btn-sm"
+                onClick={async () => {
+                  setCnumLoading(true);
+                  const fresh = await loadAllData(tok, SMAP);
+                  if (fresh) { setDb(fresh); setCnumLoaded(true); }
+                  setCnumLoading(false);
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          )}
+
           {/* Filters card */}
           <div className="card" style={{ margin: "12px 14px 0" }}>
             <div className="ctitle">
               🔦 Search &amp; Filters
               <span style={{ marginLeft: "auto", fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
-                {filteredCnum.length} records found
+                {filteredCnum.length} of {db.cnum.length} records
               </span>
             </div>
             <div className="frow">
@@ -416,7 +484,8 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                 <label className="lbl">Search keyword</label>
                 <div className="search-wrap">
                   <input className="inp" type="text" value={detSearch}
-                    onChange={e => setDetSearch(e.target.value)} placeholder="Search Case, FIR, parties, advocate, section..." />
+                    onChange={e => setDetSearch(e.target.value)}
+                    placeholder="Search Case, FIR, parties, advocate, section, nature, description..." />
                   {detSearch && <button className="search-clear" onClick={() => setDetSearch("")}>✕</button>}
                 </div>
               </div>
@@ -432,7 +501,8 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                 <select className="inp" value={detType} onChange={e => setDetType(e.target.value)}>
                   <option value="ALL">All Types</option>
                   <option value="pending">Pending</option>
-                  <option value="disposal">Disposed</option>
+                  {/* ── BUG FIX: value must match what execute() stores — "disposal" not "disposed" ── */}
+                  <option value="disposal">Disposal</option>
                 </select>
               </div>
             </div>
@@ -456,9 +526,15 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCnum.length === 0 ? (
+                  {cnumLoading ? (
+                    <tr><td colSpan={6} className="no-data">Loading…</td></tr>
+                  ) : filteredCnum.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="no-data">No cases match filters.</td>
+                      <td colSpan={6} className="no-data">
+                        {db.cnum.length === 0
+                          ? "No Case Numbered records found. Click Refresh to load."
+                          : "No cases match the current filters."}
+                      </td>
                     </tr>
                   ) : (
                     filteredCnum.map((r, idx) => (
@@ -468,7 +544,10 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                         <td style={{ fontSize: 11 }}>{r.sta || "—"}</td>
                         <td style={{ maxWidth: 220, wordBreak: "break-word" }}>{r.pt || "—"}</td>
                         <td>
-                          <span className={`vt-tag ${r.type?.toLowerCase() === "disposal" ? "vt-tag-green" : "vt-tag-blue"}`}>
+                          {/* ── BUG FIX: compare normalised type string ── */}
+                          <span className={`vt-tag ${(r.type || "").toLowerCase().trim() === "disposal"
+                            ? "vt-tag-green"
+                            : "vt-tag-blue"}`}>
                             {r.type || "—"}
                           </span>
                         </td>
@@ -489,16 +568,40 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
       {/* ── Case Detail Modal ── */}
       {activeDetailCase && (
-        <div className="modal-overlay" style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "fixed", zIndex: 1000, inset: 0, background: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(4px)" }}>
-          <div className="modal" style={{ maxWidth: 620, width: "90%", maxHeight: "85vh", display: "flex", flexDirection: "column", background: "var(--bg2)", borderRadius: 14, border: "1px solid var(--bdr)", padding: 16 }}>
-            <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid var(--bdr2)", marginBottom: 12 }}>
+        <div className="modal-overlay" style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          position: "fixed", zIndex: 1000, inset: 0,
+          background: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(4px)"
+        }}>
+          <div className="modal" style={{
+            maxWidth: 620, width: "90%", maxHeight: "85vh",
+            display: "flex", flexDirection: "column",
+            background: "var(--bg2)", borderRadius: 14,
+            border: "1px solid var(--bdr)", padding: 16
+          }}>
+            <div className="modal-title" style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              paddingBottom: 10, borderBottom: "1px solid var(--bdr2)", marginBottom: 12
+            }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: "var(--txt1)" }}>Case Details</span>
               <button className="btn btn-o btn-sm" onClick={() => setActiveDetailCase(null)}>✕</button>
             </div>
             <div className="modal-body" style={{ overflowY: "auto", padding: "4px 0", flex: 1 }}>
-              <CaseDetail r={activeDetailCase} srcKey="cnum" />
+              {/* ── BUG FIX: pass normalised record so CaseDetail can find all fields ── */}
+              <CaseDetail r={{
+                ...activeDetailCase,
+                // ensure _type is present for CaseDetail which may use it
+                _type: activeDetailCase.type || activeDetailCase._type,
+                // map sec2 → sec if CaseDetail expects 'sec' for the case section
+                caseSec: activeDetailCase.sec2,
+                // map nxt to appropriate field
+                nxt: activeDetailCase.nxt,
+              }} srcKey="cnum" />
             </div>
-            <div className="modal-actions" style={{ paddingTop: 10, borderTop: "1px solid var(--bdr2)", display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+            <div className="modal-actions" style={{
+              paddingTop: 10, borderTop: "1px solid var(--bdr2)",
+              display: "flex", justifyContent: "flex-end", marginTop: 12
+            }}>
               <button type="button" className="btn btn-o" onClick={() => setActiveDetailCase(null)}>Close</button>
             </div>
           </div>
