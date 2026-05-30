@@ -67,6 +67,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   /* ── Pending FIR state ──────────────────────────────────────────────────── */
   const [pendSt, setPendSt] = useState(() => SMAP[0]?.sh || "");
   const [pendSearch, setPendSearch] = useState("");
+  const [pendFilterStatus, setPendFilterStatus] = useState("ALL");
 
   /* ── Maintenance state ──────────────────────────────────────────────────── */
   const [issues, setIssues] = useState(null);   // null = never scanned
@@ -75,6 +76,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   const [maintMsg, setMaintMsg] = useState(null);
   const [renumMsg, setRenumMsg] = useState(null);
   const [editingRow, setEditingRow] = useState(null); // { ri, sec, dr }
+  const [concatSortAsc, setConcatSortAsc] = useState(true);
 
   /* ══════════════════════════════════════════════════════════════════════════
      ABSTRACT — derived data
@@ -157,31 +159,28 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════════════════════ */
   const pendRows = useMemo(() => {
     const rows = db.fir[pendSt] || [];
-    if (!pendSearch) return rows;
     const q = pendSearch.toLowerCase();
-    return rows.filter(r =>
-      (r.cr || "").toLowerCase().includes(q) ||
-      (r.sec || "").toLowerCase().includes(q) ||
-      (r.dr || "").includes(q));
-  }, [db, pendSt, pendSearch]);
+    return rows.filter(r => {
+      if (pendSearch) {
+        const match = (r.cr || "").toLowerCase().includes(q) ||
+          (r.sec || "").toLowerCase().includes(q) ||
+          (r.dr || "").includes(q);
+        if (!match) return false;
+      }
+      if (pendFilterStatus === "MISSING") return !r.dr;
+      if (pendFilterStatus === "FORMAT") return r.dr && !DATE_RE.test(r.dr);
+      return true;
+    });
+  }, [db, pendSt, pendSearch, pendFilterStatus]);
 
-  // sort pending station rows by FIR ascending
   const pendRowsSorted = useMemo(() => {
-    const rows = (db.fir[pendSt] || []).slice();
-    if (pendSearch) {
-      const q = pendSearch.toLowerCase();
-      // keep filtering behavior consistent
-      const filteredRows = rows.filter(r =>
-        (r.cr || "").toLowerCase().includes(q) ||
-        (r.sec || "").toLowerCase().includes(q) ||
-        (r.dr || "").includes(q)
-      );
-      filteredRows.sort((a, b) => firSortKey(a.cr) - firSortKey(b.cr));
-      return filteredRows;
-    }
+    const rows = pendRows.slice();
     rows.sort((a, b) => firSortKey(a.cr) - firSortKey(b.cr));
     return rows;
-  }, [db, pendSt, pendSearch]);
+  }, [pendRows]);
+
+  const pendMissingCount = useMemo(() => (db.fir[pendSt] || []).filter(r => !r.dr).length, [db, pendSt]);
+  const pendFormatCount = useMemo(() => (db.fir[pendSt] || []).filter(r => r.dr && !DATE_RE.test(r.dr)).length, [db, pendSt]);
 
   /* ══════════════════════════════════════════════════════════════════════════
      MAINTENANCE — scan
@@ -295,6 +294,42 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     }]);
   }
 
+  function handleExportWord(filename, title, headers, rows) {
+    exportToWord(filename, title, headers, rows);
+  }
+
+  const concatList = useMemo(() => {
+    if (!issues?.concat) return [];
+    const arr = [...issues.concat];
+    arr.sort((a, b) => concatSortAsc ? firSortKey(a.fixed) - firSortKey(b.fixed) : firSortKey(b.fixed) - firSortKey(a.fixed));
+    return arr;
+  }, [issues?.concat, concatSortAsc]);
+
+  function handleExportStationWord() {
+    handleExportWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"],
+      stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]));
+  }
+
+  function handleExportYearWord() {
+    handleExportWord("FIR_Year_Wise.doc", "Year-wise FIR Summary", ["Year", "FIRs", "%"],
+      yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]));
+  }
+
+  function handleExportMonthWord() {
+    handleExportWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"],
+      monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }));
+  }
+
+  function handleExportSectionWord() {
+    handleExportWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"],
+      secAll.map(([k, v], i) => [i + 1, k, v]));
+  }
+
+  function handleExportRecentWord() {
+    handleExportWord("FIR_Recent_Dates.doc", "Recent FIR Dates", ["Date", "FIRs"],
+      daySort.map(([k, v]) => [k, v]));
+  }
+
   /* ══════════════════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════════════════ */
@@ -379,7 +414,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           <div className="abs-grid">
             {/* Station-wise */}
             <div className="card">
-              <div className="ctitle">📍 Station-wise</div>
+              <div className="ctitle">
+              📍 Station-wise
+              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportStationWord}>⬇ Word</button>
+            </div>
               <table className="abs-tbl">
                 <thead><tr><th>Code</th><th>Station</th><th>FIRs</th><th>%</th></tr></thead>
                 <tbody>
@@ -398,7 +436,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Year-wise */}
             <div className="card">
-              <div className="ctitle">📅 Year-wise</div>
+              <div className="ctitle">
+              📅 Year-wise
+              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportYearWord}>⬇ Word</button>
+            </div>
               <table className="abs-tbl">
                 <thead><tr><th>Year</th><th>FIRs</th><th>%</th></tr></thead>
                 <tbody>
@@ -416,15 +457,23 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Month-wise */}
             <div className="card">
-              <div className="ctitle">📆 Month-wise</div>
+              <div className="ctitle">
+              📆 Month-wise
+              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportMonthWord}>⬇ Word</button>
+            </div>
               <table className="abs-tbl">
                 <thead><tr><th>Month</th><th>FIRs</th></tr></thead>
                 <tbody>
                   {monSort.length === 0
                     ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
                     : monSort.map(([k, v]) => {
-                      const [my, mn] = k.split("-"); return (
-                        <tr key={k}><td>{MON_NAMES[+mn] || mn} {my}</td><td className="mono"><b>{v}</b></td></tr>
+                      const [my, mn] = k.split("-"); const monthKey = `${mn}.${my}`;
+                      const active = filterDate === monthKey;
+                      return (
+                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(active ? "" : monthKey)}>
+                          <td style={active ? { color: "var(--gold)" } : {}}>{MON_NAMES[+mn] || mn} {my}</td>
+                          <td className="mono"><b>{v}</b></td>
+                        </tr>
                       );
                     })
                   }
@@ -435,7 +484,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Recent 30 dates */}
             <div className="card">
-              <div className="ctitle">📋 Recent 30 Dates</div>
+              <div className="ctitle">
+                📋 Recent 30 Dates
+                <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportRecentWord}>⬇ Word</button>
+              </div>
               <table className="abs-tbl">
                 <thead><tr><th>Date</th><th>FIRs</th></tr></thead>
                 <tbody>
@@ -456,6 +508,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             <div className="card">
               <div className="ctitle">
                 ⚖ Section U/s-wise
+                <button className="btn btn-o btn-sm" style={{ marginLeft: 8 }} onClick={handleExportSectionWord}>⬇ Word</button>
                 <span style={{ marginLeft: "auto", fontWeight: 400, color: "var(--txt3)", fontSize: 9 }}>{secShow.length}/{secAll.length}</span>
               </div>
               <div className="search-wrap" style={{ marginBottom: 10 }}>
@@ -541,7 +594,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               return (
                 <button key={s.sh}
                   className={`abt-st-chip${pendSt === s.sh ? " abt-st-active" : ""}`}
-                  onClick={() => { setPendSt(s.sh); setPendSearch(""); }}>
+                  onClick={() => { setPendSt(s.sh); setPendSearch(""); setPendFilterStatus("ALL"); }}>
                   <span className="abt-st-name">{s.lb}</span>
                   <span className="abt-st-cnt">{cnt}</span>
                   {badDates > 0 && <span className="abt-st-warn">{badDates}⚠</span>}
@@ -559,9 +612,22 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               </div>
 
               {/* Legend */}
-              <div className="abt-legend">
-                <span className="abt-leg-item"><span className="abt-date-badge abt-date-bad">format</span> Wrong format</span>
-                <span className="abt-leg-item"><span className="abt-date-badge abt-date-missing">missing</span> No date</span>
+              <div className="abt-legend" style={{ alignItems: "center", gap: 10 }}>
+                <button className={`abt-leg-item${pendFilterStatus === "FORMAT" ? " active" : ""}`}
+                  onClick={() => setPendFilterStatus(pendFilterStatus === "FORMAT" ? "ALL" : "FORMAT")}
+                  style={{ cursor: "pointer", background: pendFilterStatus === "FORMAT" ? "rgba(255, 85, 85, .12)" : undefined, borderColor: pendFilterStatus === "FORMAT" ? "rgba(255,85,85,.45)" : undefined }}>
+                  <span className="abt-date-badge abt-date-bad">format</span>
+                  {` Wrong format (${pendFormatCount})`}
+                </button>
+                <button className={`abt-leg-item${pendFilterStatus === "MISSING" ? " active" : ""}`}
+                  onClick={() => setPendFilterStatus(pendFilterStatus === "MISSING" ? "ALL" : "MISSING")}
+                  style={{ cursor: "pointer", background: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .12)" : undefined, borderColor: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .45)" : undefined }}>
+                  <span className="abt-date-badge abt-date-missing">missing</span>
+                  {` No date (${pendMissingCount})`}
+                </button>
+                {pendFilterStatus !== "ALL" && (
+                  <button className="btn btn-o btn-sm" onClick={() => setPendFilterStatus("ALL")}>Clear filter</button>
+                )}
               </div>
 
               <div className="search-wrap" style={{ marginBottom: 8 }}>
@@ -573,8 +639,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
               <div className="tbl-wrap">
                 <table className="abs-tbl">
-                  <thead><tr><th>Sl</th><th>CR No.</th><th>Section U/s</th><th>Date Received</th></tr></thead>
-                      <thead><tr><th>Sl</th><th>CR No.</th><th>Section U/s</th><th>Date Received</th><th>Action</th></tr></thead>
+                  <thead><tr><th>Sl</th><th>CR No.</th><th>Section U/s</th><th>Date Received</th><th>Action</th></tr></thead>
                   <tbody>
                         {pendRowsSorted.length === 0
                           ? <tr><td colSpan={5} className="no-data">No FIRs found.</td></tr>
@@ -595,7 +660,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                               }
                             </td>
                             <td style={{ width: 120 }}>
-                              <button className="btn btn-o btn-sm" onClick={() => setEditingRow({ ri: r.ri, sec: r.sec || "", dr: r.dr || "" })}>Edit</button>
+                              <button className="btn btn-o btn-sm" onClick={() => setEditingRow({ ri: r.ri ?? i + 1, sec: r.sec || "", dr: r.dr || "" })}>Edit</button>
                             </td>
                           </tr>
                         );
@@ -703,6 +768,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 <div className="card">
                   <div className="ctitle">
                     ⚠ Concatenated CR Numbers
+                    <button className="btn btn-o btn-sm" style={{ marginLeft: 8 }}
+                      onClick={() => setConcatSortAsc(prev => !prev)}>
+                      {concatSortAsc ? "Sort Desc" : "Sort Asc"}
+                    </button>
                     <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }}
                       onClick={fixConcatenated} disabled={fixing}>
                       ✦ Fix All ({issues.concat.length})
@@ -715,7 +784,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                     <table className="abs-tbl">
                       <thead><tr><th>Station</th><th>Row</th><th>As Found</th><th>→ Fixed</th></tr></thead>
                       <tbody>
-                        {issues.concat.map((iss, i) => (
+                        {concatList.map((iss, i) => (
                           <tr key={i}>
                             <td><span style={{ fontSize: 11 }}>{iss.lb}</span></td>
                             <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
