@@ -799,8 +799,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   </div>
                 </div>
                 <div className="modal-actions">
-                  <button className="btn btn-o" onClick={() => setEditingRow(null)}>Cancel</button>
-                  <button className="btn btn-g" onClick={async () => {
+                  <button type="button" className="btn btn-o" onClick={() => setEditingRow(null)}>Cancel</button>
+                  <button type="button" className="btn btn-g" onClick={async () => {
                     const ok = await updateFIRRow(tok, pendSt, editingRow.ri, editingRow.sec, editingRow.dr);
                     if (ok) {
                       setDb(prev => ({
