@@ -13,6 +13,24 @@ function parseDDMMYYYY(s) {
   return new Date(p[2], p[1] - 1, p[0]).getTime() || 0;
 }
 
+/**
+ * Robust FIR sort key — handles "123/2024", "123/ 2024", "123 / 2024", "1232024" etc.
+ * Returns a single number: year * 100000 + firNumber
+ * So 1/2025 = 202500001, 999/2025 = 202500999, 1/2026 = 202600001
+ * This guarantees: all 2025 FIRs < all 2026 FIRs, and within same year sorted by number.
+ */
+function robustFirSortKey(cr) {
+  if (!cr) return 0;
+  const s = cr.toString().trim();
+  // Try slash-separated first
+  const slash = s.match(/^(\d+)\s*\/\s*(\d{4})$/);
+  if (slash) return parseInt(slash[2], 10) * 100000 + parseInt(slash[1], 10);
+  // Try concatenated: last 4 digits = year, rest = number  e.g. "1232024"
+  const concat = s.match(/^(\d+?)(\d{4})$/);
+  if (concat) return parseInt(concat[2], 10) * 100000 + parseInt(concat[1], 10);
+  return 0;
+}
+
 function exportToExcel(filename, sheetsData) {
   try {
     const XLSX = window.XLSX; if (!XLSX) throw new Error("no xlsx");
@@ -75,12 +93,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   const [pendFilterStatus, setPendFilterStatus] = useState("ALL");
 
   /* ── Maintenance state ──────────────────────────────────────────────────── */
-  const [issues, setIssues] = useState(null);   // null = never scanned
+  const [issues, setIssues] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [maintMsg, setMaintMsg] = useState(null);
   const [renumMsg, setRenumMsg] = useState(null);
-  const [editingRow, setEditingRow] = useState(null); // { ri, sec, dr }
+  const [editingRow, setEditingRow] = useState(null);
   const [concatSortAsc, setConcatSortAsc] = useState(true);
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -147,10 +165,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       (r.dr || "").toLowerCase().includes(q) || (r.stLb || "").toLowerCase().includes(q));
   }, [filtered, listSearch]);
 
-  // Ensure displayed list is sorted by FIR (year then number) ascending
   const listFilteredSorted = useMemo(() => {
     const arr = listFiltered.slice();
-    arr.sort((a, b) => firSortKey(a.cr) - firSortKey(b.cr));
+    arr.sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
     return arr;
   }, [listFiltered]);
 
@@ -180,12 +197,43 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   const pendRowsSorted = useMemo(() => {
     const rows = pendRows.slice();
-    rows.sort((a, b) => firSortKey(a.cr) - firSortKey(b.cr));
+    rows.sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
     return rows;
   }, [pendRows]);
 
   const pendMissingCount = useMemo(() => (db.fir[pendSt] || []).filter(r => !r.dr).length, [db, pendSt]);
   const pendFormatCount = useMemo(() => (db.fir[pendSt] || []).filter(r => r.dr && !DATE_RE.test(r.dr)).length, [db, pendSt]);
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MAINTENANCE — helpers
+  ══════════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Classify a raw sheet row.
+   * Returns one of: "blank" | "header" | "banner" | "fir" | "other"
+   * For "fir" rows also returns { sl, cr, sec, dr } with cr normalised.
+   */
+  function classifyRow(row) {
+    const a = (row[0] || "").toString().trim();
+    const b = (row[1] || "").toString().trim();
+    const c = (row[2] || "").toString().trim();
+    const d = (row[3] || "").toString().trim();
+
+    if (!b) return { type: "blank", a, b, c, d };
+    if (SKIP_HDR(b)) return { type: "header", a, b, c, d };
+    if (
+      a.toLowerCase().includes("fir pending") ||
+      c.toLowerCase().includes("section of law") ||
+      c.toLowerCase().includes("police station")
+    ) return { type: "header", a, b, c, d };
+    if (/^\d{4}$/.test(b) || /^\d{4}$/.test(a) || /^\d{4}$/.test(c))
+      return { type: "banner", a, b, c, d };
+
+    const norm = normalizeFIRCell(b);
+    if (!isValidFIRCell(norm)) return { type: "other", a, b, c, d };
+
+    return { type: "fir", sl: a, cr: norm, sec: c, dr: d };
+  }
 
   /* ══════════════════════════════════════════════════════════════════════════
      MAINTENANCE — scan
@@ -197,52 +245,59 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     for (const s of SMAP) {
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
       let expectedSl = 1;
-      let lastFirSortKey = -1;
+      let lastKey = -1;      // robustFirSortKey of previous FIR row
+      let lastCR = "";       // for display in out-of-order list
+
       for (let i = 0; i < raw.length; i++) {
-        const a = (raw[i][0] || "").toString().trim();
-        const b = (raw[i][1] || "").toString().trim();
-        const c = (raw[i][2] || "").toString().trim();
-        const d = (raw[i][3] || "").toString().trim();
+        const info = classifyRow(raw[i]);
+        if (info.type !== "fir") continue;
 
-        // skip headers / year banners
-        if (!b) continue;
-        if (SKIP_HDR(b)) continue;
-        if (a.toLowerCase().includes("fir pending") || c.toLowerCase().includes("section of law") || c.toLowerCase().includes("police station")) continue;
-        if (/^\d{4}$/.test(b) || /^\d{4}$/.test(a) || /^\d{4}$/.test(c)) continue;
+        const { sl, cr, sec, dr } = info;
+        const key = robustFirSortKey(cr);
 
-        const norm = normalizeFIRCell(b);
-        if (!isValidFIRCell(norm)) continue; // not a FIR row
+        // ── Concatenated CR? ──────────────────────────────────────────
+        const original = (raw[i][1] || "").toString().trim();
+        if (cr !== original)
+          concat.push({ sh: s.sh, lb: s.lb, row: i + 1, original, fixed: cr, sec, dr });
 
-        // Concatenated?
-        if (norm !== b) concat.push({ sh: s.sh, lb: s.lb, row: i + 1, original: b, fixed: norm, sec: c, dr: d });
-
-        // Date issue?
-        if (!d) {
-          dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm, dr: "(missing)", issue: "missing" });
-        } else if (!DATE_RE.test(d)) {
-          dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm, dr: d, issue: "format" });
+        // ── Date issue? ───────────────────────────────────────────────
+        if (!dr) {
+          dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, dr: "(missing)", issue: "missing" });
+        } else if (!DATE_RE.test(dr)) {
+          dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, dr, issue: "format" });
         }
 
-        // FIR order issue?
-        const currKey = firSortKey(norm);
-        if (lastFirSortKey > 0 && currKey < lastFirSortKey) {
-          firOOO.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm });
+        // ── FIR out-of-order? ─────────────────────────────────────────
+        // key === 0 means unparseable — skip comparison
+        if (key > 0 && lastKey > 0 && key < lastKey) {
+          firOOO.push({
+            sh: s.sh, lb: s.lb, row: i + 1,
+            cr,
+            prevCR: lastCR,
+            prevKey: lastKey,
+            currKey: key,
+          });
         }
-        lastFirSortKey = currKey;
+        // Only advance lastKey when we have a valid key, so an unparseable
+        // row doesn't reset our "last seen" position.
+        if (key > 0) { lastKey = key; lastCR = cr; }
 
-        // Serial number?
-        const slNum = parseInt(a, 10);
-        if (a && !isNaN(slNum) && slNum !== expectedSl)
-          slBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr: norm, slActual: a, slExpected: expectedSl });
+        // ── Serial number? ────────────────────────────────────────────
+        const slNum = parseInt(sl, 10);
+        if (sl && !isNaN(slNum) && slNum !== expectedSl)
+          slBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, slActual: sl, slExpected: expectedSl });
         expectedSl++;
       }
     }
-    // Sort concatenated CR numbers by fixed value in ascending order by default
-    concat.sort((a, b) => firSortKey(a.fixed) - firSortKey(b.fixed));
+
+    concat.sort((a, b) => robustFirSortKey(a.fixed) - robustFirSortKey(b.fixed));
     setIssues({ concat, date: dateBad, sl: slBad, fir: firOOO });
     setScanning(false);
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     MAINTENANCE — fix concatenated
+  ══════════════════════════════════════════════════════════════════════════ */
   async function fixConcatenated() {
     if (!issues?.concat?.length) return;
     setFixing(true);
@@ -263,6 +318,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     setFixing(false);
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     MAINTENANCE — fix serial numbers
+  ══════════════════════════════════════════════════════════════════════════ */
   async function fixSerialNumbers() {
     setFixing(true);
     setRenumMsg({ type: "loading", text: "Renumbering all sheets…" });
@@ -272,6 +330,91 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     setIssues(prev => prev ? { ...prev, sl: [] } : prev);
     setFixing(false);
     setTimeout(() => setRenumMsg(null), 3500);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MAINTENANCE — fix FIR order  ← FULL REWRITE
+     Strategy:
+       1. Read full A:D for each sheet
+       2. Walk rows, classify each (header / banner / fir / other / blank)
+       3. Collect ALL fir-type rows into an array with their full data
+       4. Sort that array by robustFirSortKey(cr)  — year*100000+num
+       5. Re-assign sl = 1,2,3… on sorted array
+       6. Walk structure again; every time we hit a "fir" slot, pop the
+          next sorted row and write A:D back to the sheet
+       7. Update db state to match
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function fixFIROrder() {
+    if (!issues?.fir?.length) return;
+    setFixing(true);
+    setMaintMsg({ type: "loading", text: "Re-ordering FIR rows across all sheets…" });
+    let totalWritten = 0;
+
+    for (const s of SMAP) {
+      // ── 1. Fetch raw sheet ──────────────────────────────────────────
+      const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
+      if (!raw?.length) continue;
+
+      // ── 2. Classify every row ───────────────────────────────────────
+      const structure = raw.map((row, rowIdx) => ({
+        ...classifyRow(row),
+        rowIdx,
+      }));
+
+      // ── 3. Pull out FIR rows in current order ───────────────────────
+      const firRows = structure
+        .filter(r => r.type === "fir")
+        .map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
+
+      if (firRows.length === 0) continue;
+
+      // ── 4. Sort by year then by FIR number ──────────────────────────
+      const sorted = [...firRows].sort(
+        (a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr)
+      );
+
+      // ── 5. Assign fresh serial numbers ──────────────────────────────
+      sorted.forEach((r, i) => { r.sl = String(i + 1); });
+
+      // ── 6. Check if already correct (avoid unnecessary API calls) ───
+      const alreadyOk = firRows.every(
+        (r, i) => r.cr === sorted[i].cr && r.sec === sorted[i].sec && r.dr === sorted[i].dr
+      );
+      if (alreadyOk) continue;
+
+      // ── 7. Write sorted rows back into the fir-type slots ───────────
+      let si = 0;
+      for (const item of structure) {
+        if (item.type !== "fir") continue;
+        const src = sorted[si++];
+        const sheetRow = item.rowIdx + 1; // Sheets API is 1-based
+        await sheetsUpdate(
+          tok, SID.fir,
+          `${s.sh}!A${sheetRow}:D${sheetRow}`,
+          [[src.sl, src.cr, src.sec, src.dr]]
+        );
+        totalWritten++;
+      }
+
+      // ── 8. Mirror change into React db state ────────────────────────
+      setDb(prev => {
+        // db rows are already in sheet order; replace fir-type rows
+        const sheetFirSlots = structure.filter(r => r.type === "fir");
+        const newRows = (prev.fir[s.sh] || []).map(r => {
+          // match by ri (1-based row index in sheet)
+          const slotIndex = sheetFirSlots.findIndex(sl => sl.rowIdx + 1 === r.ri);
+          if (slotIndex === -1) return r;
+          const src = sorted[slotIndex];
+          return { ...r, sl: src.sl, cr: src.cr, sec: src.sec, dr: src.dr };
+        });
+        return { ...prev, fir: { ...prev.fir, [s.sh]: newRows } };
+      });
+    }
+
+    setMaintMsg({ type: "ok", text: `✓ Re-ordered ${totalWritten} rows. All sheets are now in ascending order.` });
+    setIssues(prev => prev ? { ...prev, fir: [], sl: [] } : prev);
+    setFixing(false);
+    setTimeout(() => setMaintMsg(null), 4000);
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -320,7 +463,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   const concatList = useMemo(() => {
     if (!issues?.concat) return [];
     const arr = [...issues.concat];
-    arr.sort((a, b) => concatSortAsc ? firSortKey(a.fixed) - firSortKey(b.fixed) : firSortKey(b.fixed) - firSortKey(a.fixed));
+    arr.sort((a, b) => concatSortAsc
+      ? robustFirSortKey(a.fixed) - robustFirSortKey(b.fixed)
+      : robustFirSortKey(b.fixed) - robustFirSortKey(a.fixed));
     return arr;
   }, [issues?.concat, concatSortAsc]);
 
@@ -330,31 +475,26 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])
     }]);
   }
-
   function handleExportStationWord() {
     handleExportWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"],
       stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]));
   }
-
   function handleExportYearExcel() {
     exportToExcel("FIR_Year_Wise.xlsx", [{
       name: "Year-wise", headers: ["Year", "FIRs", "%"],
       rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])
     }]);
   }
-
   function handleExportYearWord() {
     handleExportWord("FIR_Year_Wise.doc", "Year-wise FIR Summary", ["Year", "FIRs", "%"],
       yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]));
   }
-
   function handleExportMonthExcel() {
     exportToExcel("FIR_Month_Wise.xlsx", [{
       name: "Month-wise", headers: ["Month", "FIRs"],
       rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; })
     }]);
   }
-
   function handleExportMonthWord() {
     handleExportWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"],
       monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }));
@@ -400,31 +540,26 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       rows: secAll.map(([k, v], i) => [i + 1, k, v])
     }]);
   }
-
   function handleExportSectionWord() {
     handleExportWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"],
       secAll.map(([k, v], i) => [i + 1, k, v]));
   }
-
   function handleExportMatrixExcel() {
     exportToExcel("Station_Year_Matrix.xlsx", [{
       name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"],
       rows: matrixRows
     }]);
   }
-
   function handleExportMatrixWord() {
     handleExportWord("Station_Year_Matrix.doc", "Station × Year Matrix", ["Station", ...matrixYears, "Total"],
       matrixRows, { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 });
   }
-
   function handleExportRecentExcel() {
     exportToExcel("FIR_Recent_Dates.xlsx", [{
       name: "Recent Dates", headers: ["Date", "FIRs"],
       rows: daySort.map(([k, v]) => [k, v])
     }]);
   }
-
   function handleExportRecentWord() {
     handleExportWord("FIR_Recent_Dates.doc", "Recent FIR Dates", ["Date", "FIRs"],
       daySort.map(([k, v]) => [k, v]));
@@ -668,9 +803,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 {filterSt !== "ALL" && <span className="bdg bdg-a" style={{ marginLeft: 6 }}>{SMAP.find(s => s.sh === filterSt)?.lb}</span>}
                 {filterYr !== "ALL" && <span className="yr-badge" style={{ marginLeft: 4 }}>{filterYr}</span>}
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>{listFiltered.length} records</span>
-                    <button className="btn btn-o btn-sm" onClick={handleExportList}>⬇ Export</button>
-                    <button className="btn btn-o btn-sm" onClick={() => exportToWord("FIR_List.doc", "FIR List", ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>⬇ Word</button>
+                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>{listFiltered.length} records</span>
+                  <button className="btn btn-o btn-sm" onClick={handleExportList}>⬇ Export</button>
+                  <button className="btn btn-o btn-sm" onClick={() => exportToWord("FIR_List.doc", "FIR List", ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>⬇ Word</button>
                 </div>
               </div>
               <div className="search-wrap" style={{ marginBottom: 10 }}>
@@ -707,7 +842,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       ════════════════════════════════════════════════════════════════════ */}
       {inner === "pending" && (
         <div className="abt-pend-root">
-          {/* Station chips */}
           <div className="abt-st-bar">
             {SMAP.map(s => {
               const cnt = (db.fir[s.sh] || []).length;
@@ -724,7 +858,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             })}
           </div>
 
-          {/* FIR list for selected station */}
           {pendSt && (
             <div className="abt-pend-panel">
               <div className="abt-pend-hdr">
@@ -732,7 +865,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 <span className="abt-pend-count">{(db.fir[pendSt] || []).length} FIRs</span>
               </div>
 
-              {/* Legend */}
               <div className="abt-legend" style={{ alignItems: "center", gap: 10 }}>
                 <button className={`abt-leg-item${pendFilterStatus === "FORMAT" ? " active" : ""}`}
                   onClick={() => setPendFilterStatus(pendFilterStatus === "FORMAT" ? "ALL" : "FORMAT")}
@@ -762,9 +894,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 <table className="abs-tbl">
                   <thead><tr><th>Sl</th><th>CR No.</th><th>Section U/s</th><th>Date Received</th><th>Action</th></tr></thead>
                   <tbody>
-                        {pendRowsSorted.length === 0
-                          ? <tr><td colSpan={5} className="no-data">No FIRs found.</td></tr>
-                          : pendRowsSorted.map((r, i) => {
+                    {pendRowsSorted.length === 0
+                      ? <tr><td colSpan={5} className="no-data">No FIRs found.</td></tr>
+                      : pendRowsSorted.map((r, i) => {
                         const missing = !r.dr;
                         const badFmt = r.dr && !DATE_RE.test(r.dr);
                         return (
@@ -793,7 +925,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             </div>
           )}
 
-          {/* Edit modal for pending FIR row */}
           {editingRow && (
             <div className="modal-overlay">
               <div className="modal">
@@ -837,13 +968,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       {inner === "maintenance" && (
         <div className="abt-maint-root">
 
-          {/* Scan card */}
           <div className="abt-scan-card">
             <div className="abt-scan-icon">🔍</div>
             <div className="abt-scan-body">
               <div className="abt-scan-title">Data Scanner</div>
               <div className="abt-scan-sub">
-                Checks all sheets for concatenated CR numbers, bad dates, and out-of-order serial numbers.
+                Checks all sheets for concatenated CR numbers, bad dates, and out-of-order FIR / serial numbers.
               </div>
             </div>
             <button className="btn btn-g" onClick={doScan} disabled={scanning || fixing} style={{ flexShrink: 0 }}>
@@ -851,7 +981,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             </button>
           </div>
 
-          {/* Not yet scanned */}
           {!issues && !scanning && (
             <div className="abt-maint-empty">
               <div className="abt-maint-empty-icon">🛠</div>
@@ -860,7 +989,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             </div>
           )}
 
-          {/* Results */}
           {issues && (
             <>
               {/* Summary chips */}
@@ -873,8 +1001,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <div className="abt-issue-num">{issues.date.length}</div>
                   <div className="abt-issue-lbl">Date Issues</div>
                 </div>
-                <div className={`abt-issue-chip ${(issues.fir && issues.fir.length > 0) ? "abt-issue-red" : "abt-issue-green"}`}>
-                  <div className="abt-issue-num">{issues.fir ? issues.fir.length : 0}</div>
+                <div className={`abt-issue-chip ${issues.fir?.length > 0 ? "abt-issue-red" : "abt-issue-green"}`}>
+                  <div className="abt-issue-num">{issues.fir?.length ?? 0}</div>
                   <div className="abt-issue-lbl">FIR Out of Order</div>
                 </div>
                 <div className={`abt-issue-chip ${issues.sl.length > 0 ? "abt-issue-amber" : "abt-issue-green"}`}>
@@ -883,8 +1011,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               </div>
 
-              {/* All clear */}
-              {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && (!issues.fir || issues.fir.length === 0) && (
+              {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && !issues.fir?.length && (
                 <div className="msg-ok" style={{ marginBottom: 10 }}>✓ All sheets are clean — no data issues found.</div>
               )}
 
@@ -903,7 +1030,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                     </button>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                    These CR numbers are missing the "/" separator (e.g. "1232024" → "123/2024"). Will be auto-corrected in the sheet.
+                    These CR numbers are missing the "/" separator (e.g. "1232024" → "123/2024").
                   </div>
                   <div className="tbl-wrap">
                     <table className="abs-tbl">
@@ -923,7 +1050,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               )}
 
-              {/* Date issues — manual fix needed */}
+              {/* Date issues */}
               {issues.date.length > 0 && (
                 <div className="card">
                   <div className="ctitle">📅 Date Format Issues
@@ -932,7 +1059,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                    Expected format: <b className="mono">DD.MM.YYYY</b> — rows below have incorrect or missing dates.
+                    Expected format: <b className="mono">DD.MM.YYYY</b>
                   </div>
                   <div className="tbl-wrap">
                     <table className="abs-tbl">
@@ -957,27 +1084,48 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               )}
 
-              {/* FIR out-of-order detection */}
-              {issues.fir && issues.fir.length > 0 && (
+              {/* ── FIR Out of Order — with Fix button ── */}
+              {issues.fir?.length > 0 && (
                 <div className="card">
-                  <div className="ctitle">⚠ FIR Numbers Out of Order
-                    <span style={{ marginLeft: "auto", fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
-                      Manual review needed
-                    </span>
+                  <div className="ctitle">
+                    ⚠ FIR Numbers Out of Order
+                    <button
+                      className="btn btn-g btn-sm"
+                      style={{ marginLeft: "auto" }}
+                      onClick={fixFIROrder}
+                      disabled={fixing}
+                    >
+                      {fixing ? "⏳ Fixing…" : `✦ Fix All (${issues.fir.length})`}
+                    </button>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                    These FIRs are not in ascending order by year/number. Sheets must have FIRs sorted chronologically.
+                    FIRs are not in ascending order by year → number
+                    (e.g. <b className="mono">26/2026</b> appears before <b className="mono">12/2025</b> or <b className="mono">12/2026</b>).
+                    Click <b>Fix All</b> — every sheet's FIR rows will be sorted
+                    <b> year first, then number</b>; headers and year banners stay in place.
+                    Serial numbers will be rewritten too.
                   </div>
                   <div className="tbl-wrap">
                     <table className="abs-tbl">
-                      <thead><tr><th>Station</th><th>Row</th><th>CR No.</th><th>Issue</th></tr></thead>
+                      <thead>
+                        <tr>
+                          <th>Station</th>
+                          <th>Row</th>
+                          <th>Previous CR</th>
+                          <th>↓ This CR (wrong)</th>
+                          <th>Expected order</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {issues.fir.map((iss, i) => (
                           <tr key={i}>
                             <td style={{ fontSize: 11 }}>{iss.lb}</td>
                             <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
-                            <td className="mono" style={{ color: "var(--gold)" }}>{iss.cr}</td>
-                            <td><span className="abt-date-badge abt-date-bad">Out of order</span></td>
+                            <td className="mono" style={{ color: "var(--txt2)" }}>{iss.prevCR}</td>
+                            <td><span className="abt-cr-bad">{iss.cr}</span></td>
+                            <td style={{ fontSize: 10, color: "var(--txt3)" }}>
+                              {iss.cr} should come before {iss.prevCR}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -989,7 +1137,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               {/* Serial number fix */}
               <div className="card">
                 <div className="ctitle">
-                  🔢 Serial Numbers (Ascending Order)
+                  🔢 Serial Numbers
                   {issues.sl.length > 0 && (
                     <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }}
                       onClick={fixSerialNumbers} disabled={fixing}>
@@ -1001,7 +1149,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   ? <div className="msg-ok">✓ All serial numbers are in correct ascending order.</div>
                   : <>
                     <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                      {issues.sl.length} rows have incorrect serial numbers — will be rewritten in ascending order.
+                      {issues.sl.length} rows have incorrect serial numbers.
                     </div>
                     <div className="tbl-wrap">
                       <table className="abs-tbl">
