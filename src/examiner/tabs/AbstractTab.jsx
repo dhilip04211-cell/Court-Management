@@ -323,10 +323,76 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════════════════════ */
   async function fixSerialNumbers() {
     setFixing(true);
-    setRenumMsg({ type: "loading", text: "Renumbering all sheets…" });
-    let total = 0;
-    for (const s of SMAP) total += await renumberFIRSheet(tok, s.sh);
-    setRenumMsg({ type: "ok", text: `✓ Renumbered ${total} rows across all sheets.` });
+    setRenumMsg({ type: "loading", text: "Re-ordering rows by serial number and renumbering…" });
+    let totalWritten = 0;
+
+    for (const s of SMAP) {
+      // ── 1. Fetch raw sheet ──────────────────────────────────────────
+      const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
+      if (!raw?.length) continue;
+
+      // ── 2. Classify every row ───────────────────────────────────────
+      const structure = raw.map((row, rowIdx) => ({
+        ...classifyRow(row),
+        rowIdx,
+      }));
+
+      // ── 3. Pull out FIR rows in current order ───────────────────────
+      const firRows = structure
+        .filter(r => r.type === "fir")
+        .map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
+
+      if (firRows.length === 0) continue;
+
+      // ── 4. Sort by their serial number (sl) ─────────────────────────
+      const sorted = [...firRows].sort((a, b) => {
+        const valA = parseInt(a.sl, 10);
+        const valB = parseInt(b.sl, 10);
+        const isNumA = !isNaN(valA);
+        const isNumB = !isNaN(valB);
+        if (isNumA && isNumB) return valA - valB;
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+        return 0;
+      });
+
+      // ── 5. Assign fresh serial numbers ──────────────────────────────
+      sorted.forEach((r, i) => { r.sl = String(i + 1); });
+
+      // ── 6. Check if already correct (avoid unnecessary API calls) ───
+      const alreadyOk = firRows.every(
+        (r, i) => r.sl === sorted[i].sl && r.cr === sorted[i].cr && r.sec === sorted[i].sec && r.dr === sorted[i].dr
+      );
+      if (alreadyOk) continue;
+
+      // ── 7. Write sorted rows back into the fir-type slots ───────────
+      let si = 0;
+      for (const item of structure) {
+        if (item.type !== "fir") continue;
+        const src = sorted[si++];
+        const sheetRow = item.rowIdx + 1; // Sheets API is 1-based
+        await sheetsUpdate(
+          tok, SID.fir,
+          `${s.sh}!A${sheetRow}:D${sheetRow}`,
+          [[src.sl, src.cr, src.sec, src.dr]]
+        );
+        totalWritten++;
+      }
+
+      // ── 8. Mirror change into React db state ────────────────────────
+      setDb(prev => {
+        const sheetFirSlots = structure.filter(r => r.type === "fir");
+        const newRows = (prev.fir[s.sh] || []).map(r => {
+          const slotIndex = sheetFirSlots.findIndex(sl => sl.rowIdx + 1 === r.ri);
+          if (slotIndex === -1) return r;
+          const src = sorted[slotIndex];
+          return { ...r, sl: src.sl, cr: src.cr, sec: src.sec, dr: src.dr };
+        });
+        return { ...prev, fir: { ...prev.fir, [s.sh]: newRows } };
+      });
+    }
+
+    setRenumMsg({ type: "ok", text: `✓ Re-ordered and renumbered ${totalWritten} rows across all sheets.` });
     setIssues(prev => prev ? { ...prev, sl: [] } : prev);
     setFixing(false);
     setTimeout(() => setRenumMsg(null), 3500);
@@ -656,20 +722,22 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <button className="btn btn-o btn-sm" onClick={handleExportStationWord}>⬇ Word</button>
                 </div>
               </div>
-              <table className="abs-tbl">
-                <thead><tr><th>Code</th><th>Station</th><th>FIRs</th><th>%</th></tr></thead>
-                <tbody>
-                  {stTot.map(s => (
-                    <tr key={s.sh} style={{ cursor: "pointer" }} onClick={() => setFilterSt(filterSt === s.sh ? "ALL" : s.sh)}>
-                      <td className="mono" style={{ color: "var(--txt3)" }}>{s.sh}</td>
-                      <td>{s.lb}</td>
-                      <td><b className="mono" style={{ color: s.cnt > 0 ? "var(--gold)" : "var(--txt3)" }}>{s.cnt}</b></td>
-                      <td className="mono">{grand ? ((s.cnt / grand) * 100).toFixed(1) : 0}%</td>
-                    </tr>
-                  ))}
-                  <tr className="tot-row"><td colSpan={2}>Total</td><td><b className="mono">{grand}</b></td><td>100%</td></tr>
-                </tbody>
-              </table>
+              <div className="abs-tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>Code</th><th>Station</th><th>FIRs</th><th>%</th></tr></thead>
+                  <tbody>
+                    {stTot.map(s => (
+                      <tr key={s.sh} style={{ cursor: "pointer" }} onClick={() => setFilterSt(filterSt === s.sh ? "ALL" : s.sh)}>
+                        <td className="mono" style={{ color: "var(--txt3)" }}>{s.sh}</td>
+                        <td>{s.lb}</td>
+                        <td><b className="mono" style={{ color: s.cnt > 0 ? "var(--gold)" : "var(--txt3)" }}>{s.cnt}</b></td>
+                        <td className="mono">{grand ? ((s.cnt / grand) * 100).toFixed(1) : 0}%</td>
+                      </tr>
+                    ))}
+                    <tr className="tot-row"><td colSpan={2}>Total</td><td><b className="mono">{grand}</b></td><td>100%</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Year-wise */}
@@ -681,19 +749,21 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <button className="btn btn-o btn-sm" onClick={handleExportYearWord}>⬇ Word</button>
                 </div>
               </div>
-              <table className="abs-tbl">
-                <thead><tr><th>Year</th><th>FIRs</th><th>%</th></tr></thead>
-                <tbody>
-                  {yrSort.map(([k, v]) => (
-                    <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterYr(filterYr === k ? "ALL" : k)}>
-                      <td><span className="yr-badge">{k}</span>{filterYr === k && <span style={{ marginLeft: 4, color: "var(--gold)", fontSize: 9 }}>▶</span>}</td>
-                      <td className="mono"><b>{v}</b></td>
-                      <td className="mono">{grand ? ((v / grand) * 100).toFixed(1) : 0}%</td>
-                    </tr>
-                  ))}
-                  <tr className="tot-row"><td>Total</td><td className="mono"><b>{grand}</b></td><td>100%</td></tr>
-                </tbody>
-              </table>
+              <div className="abs-tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>Year</th><th>FIRs</th><th>%</th></tr></thead>
+                  <tbody>
+                    {yrSort.map(([k, v]) => (
+                      <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterYr(filterYr === k ? "ALL" : k)}>
+                        <td><span className="yr-badge">{k}</span>{filterYr === k && <span style={{ marginLeft: 4, color: "var(--gold)", fontSize: 9 }}>▶</span>}</td>
+                        <td className="mono"><b>{v}</b></td>
+                        <td className="mono">{grand ? ((v / grand) * 100).toFixed(1) : 0}%</td>
+                      </tr>
+                    ))}
+                    <tr className="tot-row"><td>Total</td><td className="mono"><b>{grand}</b></td><td>100%</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Month-wise */}
@@ -705,25 +775,27 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <button className="btn btn-o btn-sm" onClick={handleExportMonthWord}>⬇ Word</button>
                 </div>
               </div>
-              <table className="abs-tbl">
-                <thead><tr><th>Month</th><th>FIRs</th></tr></thead>
-                <tbody>
-                  {monSort.length === 0
-                    ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
-                    : monSort.map(([k, v]) => {
-                      const [my, mn] = k.split("-"); const monthKey = `${mn}.${my}`;
-                      const active = filterDate === monthKey;
-                      return (
-                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(active ? "" : monthKey)}>
-                          <td style={active ? { color: "var(--gold)" } : {}}>{MON_NAMES[+mn] || mn} {my}</td>
-                          <td className="mono"><b>{v}</b></td>
-                        </tr>
-                      );
-                    })
-                  }
-                  {monSort.length > 0 && <tr className="tot-row"><td>Total</td><td className="mono"><b>{monSort.reduce((a, [, v]) => a + v, 0)}</b></td></tr>}
-                </tbody>
-              </table>
+              <div className="abs-tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>Month</th><th>FIRs</th></tr></thead>
+                  <tbody>
+                    {monSort.length === 0
+                      ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
+                      : monSort.map(([k, v]) => {
+                        const [my, mn] = k.split("-"); const monthKey = `${mn}.${my}`;
+                        const active = filterDate === monthKey;
+                        return (
+                          <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(active ? "" : monthKey)}>
+                            <td style={active ? { color: "var(--gold)" } : {}}>{MON_NAMES[+mn] || mn} {my}</td>
+                            <td className="mono"><b>{v}</b></td>
+                          </tr>
+                        );
+                      })
+                    }
+                    {monSort.length > 0 && <tr className="tot-row"><td>Total</td><td className="mono"><b>{monSort.reduce((a, [, v]) => a + v, 0)}</b></td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Recent 30 dates */}
@@ -735,20 +807,22 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <button className="btn btn-o btn-sm" onClick={handleExportRecentWord}>⬇ Word</button>
                 </div>
               </div>
-              <table className="abs-tbl">
-                <thead><tr><th>Date</th><th>FIRs</th></tr></thead>
-                <tbody>
-                  {daySort.length === 0
-                    ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
-                    : daySort.map(([k, v]) => (
-                      <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(filterDate === k ? "" : k)}>
-                        <td className="mono" style={filterDate === k ? { color: "var(--gold)", fontWeight: 700 } : {}}>{k}</td>
-                        <td className="mono"><b>{v}</b></td>
-                      </tr>
-                    ))
-                  }
-                </tbody>
-              </table>
+              <div className="abs-tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>Date</th><th>FIRs</th></tr></thead>
+                  <tbody>
+                    {daySort.length === 0
+                      ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
+                      : daySort.map(([k, v]) => (
+                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(filterDate === k ? "" : k)}>
+                          <td className="mono" style={filterDate === k ? { color: "var(--gold)", fontWeight: 700 } : {}}>{k}</td>
+                          <td className="mono"><b>{v}</b></td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Section-wise */}
@@ -766,22 +840,24 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   onChange={e => setSecSearch(e.target.value)} placeholder="Search section…" />
                 {secSearch && <button className="search-clear" onClick={() => setSecSearch("")}>✕</button>}
               </div>
-              <table className="abs-tbl">
-                <thead><tr><th>#</th><th>Section U/s</th><th>FIRs</th></tr></thead>
-                <tbody>
-                  {secShow.length === 0
-                    ? <tr><td colSpan={3} className="no-data">No match</td></tr>
-                    : secShow.map(([k, v], i) => (
-                      <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterSec(filterSec === k ? "" : k)}>
-                        <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
-                        <td style={filterSec && k.toLowerCase().includes(filterSec.toLowerCase()) ? { color: "var(--gold)" } : {}}>{k}</td>
-                        <td className="mono"><b>{v}</b></td>
-                      </tr>
-                    ))
-                  }
-                  <tr className="tot-row"><td colSpan={2}>Total</td><td className="mono"><b>{grand}</b></td></tr>
-                </tbody>
-              </table>
+              <div className="abs-tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>#</th><th>Section U/s</th><th>FIRs</th></tr></thead>
+                  <tbody>
+                    {secShow.length === 0
+                      ? <tr><td colSpan={3} className="no-data">No match</td></tr>
+                      : secShow.map(([k, v], i) => (
+                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterSec(filterSec === k ? "" : k)}>
+                          <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
+                          <td style={filterSec && k.toLowerCase().includes(filterSec.toLowerCase()) ? { color: "var(--gold)" } : {}}>{k}</td>
+                          <td className="mono"><b>{v}</b></td>
+                        </tr>
+                      ))
+                    }
+                    <tr className="tot-row"><td colSpan={2}>Total</td><td className="mono"><b>{grand}</b></td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Station × Year Matrix */}

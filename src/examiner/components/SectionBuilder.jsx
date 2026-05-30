@@ -13,11 +13,26 @@ export default function SectionBuilder({ value, onChange }) {
   });
 
   const mainSecRef = useRef(null);
+  const lastSentValueRef = useRef("");
 
   useEffect(() => {
-    const str = buildSectionString(groups);
+    const str = groups.some(g => g.raw)
+      ? groups.find(g => g.raw)?.raw || ""
+      : buildSectionString(groups);
+    lastSentValueRef.current = str;
     onChange(str);
   }, [groups]);
+
+  useEffect(() => {
+    if (value !== lastSentValueRef.current) {
+      lastSentValueRef.current = value;
+      if (!value) {
+        setGroups([]);
+      } else {
+        setGroups([{ actId: "__raw__", sections: [{ main: value, sub: "" }], raw: value }]);
+      }
+    }
+  }, [value]);
 
   function addSection() {
     if (!activeAct || !mainSec.trim()) return;
@@ -81,12 +96,7 @@ export default function SectionBuilder({ value, onChange }) {
     ? groups.find(g => g.raw)?.raw || ""
     : buildSectionString(groups);
 
-  // Sync onChange for raw groups
-  useEffect(() => {
-    if (groups.some(g => g.raw)) {
-      onChange(groups.find(g => g.raw)?.raw || "");
-    }
-  }, [groups]);
+
 
   return (
     <div className="sb-root">

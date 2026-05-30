@@ -2069,6 +2069,13 @@ select.inp {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 14px;
   padding-bottom: 16px;
+  margin: 10px 12px 0;
+}
+
+/* ── Abstract table wrapper ── */
+.abs-tbl-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Abstract table ── */
@@ -2539,6 +2546,7 @@ select.inp {
 
   .abs-grid {
     grid-template-columns: 1fr;
+    margin: 8px 8px 0;
   }
 
   .stat-grid {
