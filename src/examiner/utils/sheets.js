@@ -1,26 +1,37 @@
 import { SID } from "../constants/config.js";
 import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
-// ─── Always use relative paths (/api/…) so it works on localhost (via Vite
-//     proxy or the dev server), Vercel preview, and production without any
-//     host/port guessing.
-const API       = "/api/sheets";
-const API_OPS   = "/api/sheets-ops";
+const API     = "/api/sheets";
+const API_OPS = "/api/sheets-ops";
 
-// ─── Internal fetch helper – throws on HTTP errors so callers can catch them
-async function apiFetch(url, body) {
-  const r = await fetch(url, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(body),
-  });
-  if (!r.ok) {
-    // Try to surface the server-side error message
-    let detail = "";
-    try { detail = (await r.json()).error || (await r.text()); } catch (_) {}
-    throw new Error(`API ${url} → ${r.status} ${r.statusText}${detail ? ": " + detail : ""}`);
+// ─── Small delay to avoid hitting Vercel's 12 req/s rate limit
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+// ─── Fetch with automatic retry on 429 (back-off: 1s, 2s, 4s)
+async function apiFetch(url, body, retries = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const r = await fetch(url, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+
+    if (r.status === 429 && attempt < retries) {
+      // Rate limited — wait and retry with exponential back-off
+      const wait = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+      console.warn(`429 rate limit on ${url}, retrying in ${wait}ms…`);
+      await sleep(wait);
+      continue;
+    }
+
+    if (!r.ok) {
+      let detail = "";
+      try { detail = (await r.json()).error || (await r.text()); } catch (_) {}
+      throw new Error(`API ${url} → ${r.status} ${r.statusText}${detail ? ": " + detail : ""}`);
+    }
+
+    return r.json();
   }
-  return r.json();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -33,7 +44,7 @@ export async function sheetsGet(tok, sid, range) {
     return d.values || [];
   } catch (e) {
     console.error("sheetsGet error:", e);
-    throw e;   // ← re-throw so fetchAll() in Examiner shows the error screen
+    throw e;
   }
 }
 
@@ -76,10 +87,6 @@ export async function getSheetIdByName(tok, sid, tabName) {
   }
 }
 
-/**
- * Load tab names from the FIR spreadsheet as SMAP.
- * Skips known non-station tabs (Sheet1-Sheet6).
- */
 export async function loadStationsFromSheet(tok) {
   const meta = await getSheetMeta(tok, SID.fir);
   if (!meta) return null;
@@ -159,12 +166,16 @@ export async function loadAllData(tok, smap) {
   const fir = {};
   for (const s of smap) {
     fir[s.sh] = await loadFIRSheet(tok, s.sh);
+    await sleep(150); // small pause between stations to avoid 429
   }
 
-  const pr   = await sheetsGet(tok, SID.pending,  "Sheet1!A:L");
-  const dr2  = await sheetsGet(tok, SID.disposal, "Sheet1!A:L");
-  const nr   = await sheetsGet(tok, SID.nonval,   "Sheet1!A:G");
-  const cnr  = await sheetsGet(tok, SID.casenum,  "Sheet1!A:M");
+  const pr  = await sheetsGet(tok, SID.pending,  "Sheet1!A:L");
+  await sleep(150);
+  const dr2 = await sheetsGet(tok, SID.disposal, "Sheet1!A:L");
+  await sleep(150);
+  const nr  = await sheetsGet(tok, SID.nonval,   "Sheet1!A:G");
+  await sleep(150);
+  const cnr = await sheetsGet(tok, SID.casenum,  "Sheet1!A:M");
 
   const pend = pr.slice(1)
     .map((r, i) => ({
@@ -204,14 +215,12 @@ export async function loadAllData(tok, smap) {
   return { fir, pend, disp, nv, cnum };
 }
 
-/**
- * insertFIRSorted — append → read → sort → renumber changed rows only
- */
 export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
   try {
     const appendRes = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [["", newCr, newSec, newDr]]);
     if (!appendRes) return { ok: false, ri: -1 };
 
+    await sleep(300);
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     const dataRows = [];
     for (let i = 0; i < rawRows.length; i++) {
@@ -232,12 +241,13 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
     }
     const newSl = dataRows.findIndex(r => r.ri === newRi) + 1;
 
-    // Only update serial-number cells that actually changed
+    // Update only changed serial numbers, with 100ms gap each
     for (let i = 0; i < dataRows.length; i++) {
       const expectedSl = String(i + 1);
       const currentSl  = (rawRows[dataRows[i].ri - 1][0] || "").toString().trim();
       if (currentSl !== expectedSl) {
         await sheetsUpdate(tok, SID.fir, `${tabName}!A${dataRows[i].ri}`, [[i + 1]]);
+        await sleep(100); // ← prevent 429 on rapid sequential writes
       }
     }
 
@@ -248,9 +258,6 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
   }
 }
 
-/**
- * Batch renumber all sl for a tab
- */
 export async function renumberFIRSheet(tok, tabName) {
   try {
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
@@ -259,6 +266,7 @@ export async function renumberFIRSheet(tok, tabName) {
       const b = (rawRows[i][1] || "").toString().trim();
       if (isValidFIRCell(b)) {
         await sheetsUpdate(tok, SID.fir, `${tabName}!A${i + 1}`, [[sl++]]);
+        await sleep(100); // ← prevent 429
       }
     }
     return sl - 1;
