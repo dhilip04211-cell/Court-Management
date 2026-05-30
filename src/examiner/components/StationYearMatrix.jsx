@@ -1,27 +1,5 @@
 import React from "react";
 
-/**
- * Export data as Excel (.xlsx) using SheetJS (xlsx) loaded via CDN script tag.
- * Falls back to CSV if xlsx not available.
- */
-function exportToExcel(filename, sheetName, headers, rows) {
-  try {
-    const XLSX = window.XLSX;
-    if (!XLSX) throw new Error("no xlsx");
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, filename);
-  } catch {
-    // fallback: CSV download
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = filename.replace(/\.xlsx$/, ".csv");
-    a.click();
-  }
-}
-
 export default function StationYearMatrix({ allFirs, years, stTot, setFilterSt, setFilterYr }) {
   // Show ALL years sorted ascending (not just last 15)
   const yrList = [...years].sort();
@@ -42,23 +20,8 @@ export default function StationYearMatrix({ allFirs, years, stTot, setFilterSt, 
     return yrList.some(y => (matrix[`${s.sh}::${y}`] || 0) > 0);
   });
 
-  function handleExport() {
-    const headers = ["Station", ...yrList, "Total"];
-    const rows = activeStations.map(s => {
-      const total = yrList.reduce((a, y) => a + (matrix[`${s.sh}::${y}`] || 0), 0);
-      return [s.lb, ...yrList.map(y => matrix[`${s.sh}::${y}`] || 0), total];
-    });
-    const grandRow = ["Year Total", ...yrList.map(y => yrTotals[y] || 0),
-      yrList.reduce((a, y) => a + (yrTotals[y] || 0), 0)];
-    rows.push(grandRow);
-    exportToExcel("Station_Year_Matrix.xlsx", "Matrix", headers, rows);
-  }
-
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-        <button className="btn btn-o btn-sm" onClick={handleExport}>⬇ Export Excel</button>
-      </div>
       <div className="tbl-wrap">
         <table className="abs-tbl" style={{ fontSize: 11 }}>
           <thead>

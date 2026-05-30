@@ -32,9 +32,14 @@ function exportToExcel(filename, sheetsData) {
   }
 }
 
-function exportToWord(filename, title, headers, rows) {
+function exportToWord(filename, title, headers, rows, options = {}) {
+  const pageSize = options.pageSize || 'A4';
+  const orientation = options.orientation || 'portrait';
+  const fontSize = options.fontSize || 12;
+  const cellPadding = options.cellPadding || 6;
+  const pageRule = options.pageSize || options.orientation ? `@page { size: ${pageSize} ${orientation}; margin: 12mm; }` : '';
   const style = `
-    <style>body{font-family: 'Times New Roman', Times, serif; color:#000} table{border-collapse:collapse;width:100%} th,td{border:1px solid #444;padding:6px;text-align:left;font-size:12px}</style>`;
+    <style>${pageRule} body{font-family:'Times New Roman', Times, serif; color:#000; margin: 12mm;} table{border-collapse:collapse;width:100%;table-layout:fixed;} th,td{border:1px solid #444;padding:${cellPadding}px;text-align:left;font-size:${fontSize}px;word-wrap:break-word;} th{background:#f3f3f3;} h2{margin-bottom:16px;}</style>`;
   const thead = `<tr>${headers.map(h => `<th>${String(h)}</th>`).join('')}</tr>`;
   const tbody = rows.map(r => `<tr>${r.map(c => `<td>${String(c ?? '')}</td>`).join('')}</tr>`).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8">${style}</head><body><h2>${title}</h2><table>${thead}${tbody}</table></body></html>`;
@@ -400,7 +405,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   function handleExportMatrixWord() {
     handleExportWord("Station_Year_Matrix.doc", "Station × Year Matrix", ["Station", ...matrixYears, "Total"],
-      matrixRows);
+      matrixRows, { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 });
   }
 
   function handleExportRecentExcel() {
@@ -636,9 +641,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Station × Year Matrix */}
             <div className="card" style={{ gridColumn: "1/-1" }}>
-              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+              <div className="ctitle" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                 <span>📊 Station × Year Matrix</span>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <button className="btn btn-o btn-sm" onClick={handleExportMatrixExcel}>⬇ Excel</button>
                   <button className="btn btn-o btn-sm" onClick={handleExportMatrixWord}>⬇ Word</button>
                 </div>
