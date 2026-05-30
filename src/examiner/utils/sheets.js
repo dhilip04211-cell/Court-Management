@@ -1,12 +1,30 @@
 import { SID } from "../constants/config.js";
 import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
+// Determine API base URL for different environments
+const getApiBase = () => {
+  if (typeof window === "undefined") return "";
+  const loc = window.location;
+  if (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") {
+    return `http://${loc.hostname}:${loc.port}`;
+  }
+  // For Vercel deployments, use same origin
+  return `${loc.protocol}//${loc.host}`;
+};
+
 export async function sheetsGet(tok, sid, range) {
   try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(range)}`,
-      { headers: { Authorization: `Bearer ${tok}` } }
-    );
+    const apiBase = getApiBase();
+    const r = await fetch(`${apiBase}/api/sheets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: tok,
+        spreadsheetId: sid,
+        range,
+        method: "GET",
+      }),
+    });
     if (!r.ok) return [];
     const d = await r.json();
     return d.values || [];
@@ -18,14 +36,18 @@ export async function sheetsGet(tok, sid, range) {
 
 export async function sheetsUpdate(tok, sid, range, vals) {
   try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
-      {
+    const apiBase = getApiBase();
+    const r = await fetch(`${apiBase}/api/sheets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: tok,
+        spreadsheetId: sid,
+        range,
         method: "PUT",
-        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ values: vals }),
-      }
-    );
+        values: vals,
+      }),
+    });
     return r.ok;
   } catch (e) {
     console.error("sheetsUpdate error:", e);
@@ -35,14 +57,18 @@ export async function sheetsUpdate(tok, sid, range, vals) {
 
 export async function sheetsAppend(tok, sid, range, vals) {
   try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ values: vals }),
-      }
-    );
+    const apiBase = getApiBase();
+    const r = await fetch(`${apiBase}/api/sheets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: tok,
+        spreadsheetId: sid,
+        range,
+        method: "APPEND",
+        values: vals,
+      }),
+    });
     return r.ok;
   } catch (e) {
     console.error("sheetsAppend error:", e);
@@ -52,10 +78,16 @@ export async function sheetsAppend(tok, sid, range, vals) {
 
 export async function getSheetMeta(tok, sid) {
   try {
-    const m = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sid}?fields=sheets.properties`,
-      { headers: { Authorization: `Bearer ${tok}` } }
-    );
+    const apiBase = getApiBase();
+    const m = await fetch(`${apiBase}/api/sheets-ops`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: tok,
+        spreadsheetId: sid,
+        operation: "getMeta",
+      }),
+    });
     if (!m.ok) return null;
     return await m.json();
   } catch (e) {
@@ -65,10 +97,25 @@ export async function getSheetMeta(tok, sid) {
 }
 
 export async function getSheetIdByName(tok, sid, tabName) {
-  const meta = await getSheetMeta(tok, sid);
-  if (!meta) return null;
-  const sh = (meta.sheets || []).find(s => s.properties.title === tabName);
-  return sh ? sh.properties.sheetId : null;
+  try {
+    const apiBase = getApiBase();
+    const response = await fetch(`${apiBase}/api/sheets-ops`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: tok,
+        spreadsheetId: sid,
+        operation: "getSheetIdByName",
+        tabName,
+      }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.sheetId;
+  } catch (e) {
+    console.error("getSheetIdByName error:", e);
+    return null;
+  }
 }
 
 /**
@@ -87,49 +134,53 @@ export async function loadStationsFromSheet(tok) {
 }
 
 export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
-  const sheetId = await getSheetIdByName(tok, sid, tabName);
-  if (sheetId === null) return false;
-  const r = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sid}:batchUpdate`,
-    {
+  try {
+    const sheetId = await getSheetIdByName(tok, sid, tabName);
+    if (sheetId === null) return false;
+    
+    const apiBase = getApiBase();
+    const r = await fetch(`${apiBase}/api/sheets-ops`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId, dimension: "ROWS",
-              startIndex: oneBasedRow - 1, endIndex: oneBasedRow,
-            }
-          }
-        }],
+        token: tok,
+        spreadsheetId: sid,
+        operation: "deleteRow",
+        tabName,
+        oneBasedRow,
+        sheetId,
       }),
-    }
-  );
-  return r.ok;
+    });
+    return r.ok;
+  } catch (e) {
+    console.error("sheetsDeleteRow error:", e);
+    return false;
+  }
 }
 
 export async function sheetsInsertRow(tok, sid, tabName, oneBasedRow) {
-  const sheetId = await getSheetIdByName(tok, sid, tabName);
-  if (sheetId === null) return false;
-  const r = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sid}:batchUpdate`,
-    {
+  try {
+    const sheetId = await getSheetIdByName(tok, sid, tabName);
+    if (sheetId === null) return false;
+    
+    const apiBase = getApiBase();
+    const r = await fetch(`${apiBase}/api/sheets-ops`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        requests: [{
-          insertDimension: {
-            range: {
-              sheetId, dimension: "ROWS",
-              startIndex: oneBasedRow - 1, endIndex: oneBasedRow,
-            }, inheritFromBefore: false
-          }
-        }],
+        token: tok,
+        spreadsheetId: sid,
+        operation: "insertRow",
+        tabName,
+        oneBasedRow,
+        sheetId,
       }),
-    }
-  );
-  return r.ok;
+    });
+    return r.ok;
+  } catch (e) {
+    console.error("sheetsInsertRow error:", e);
+    return false;
+  }
 }
 
 export async function sheetsWriteRow(tok, sid, tabName, oneBasedRow, vals) {
@@ -227,16 +278,13 @@ export async function loadAllData(tok, smap) {
  */
 export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existingRows) {
   try {
-    const appendRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SID.fir}/values/${encodeURIComponent(tabName + "!A:D")}:append?valueInputOption=USER_ENTERED`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ values: [["", newCr, newSec, newDr]] }),
-      }
-    );
-    if (!appendRes.ok) return { ok: false, ri: -1 };
+    const apiBase = getApiBase();
+    
+    // Append new row
+    const appendRes = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [["", newCr, newSec, newDr]]);
+    if (!appendRes) return { ok: false, ri: -1 };
 
+    // Read all rows
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     const dataRows = [];
     for (let i = 0; i < rawRows.length; i++) {
@@ -268,17 +316,25 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
     }
 
     if (updates.length > 0) {
-      await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${SID.fir}/values:batchUpdate`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            valueInputOption: "USER_ENTERED",
-            data: updates,
-          }),
-        }
-      );
+      await fetch(`${apiBase}/api/sheets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: tok,
+          spreadsheetId: SID.fir,
+          operation: "batchUpdate",
+          requests: updates.map(u => ({
+            updateCells: {
+              range: { sheetId: 0 }, // This will be handled differently
+            }
+          })),
+        }),
+      });
+      
+      // Alternative: use individual updates instead
+      for (const update of updates) {
+        await sheetsUpdate(tok, SID.fir, update.range, update.values);
+      }
     }
 
     return { ok: true, ri: newRi, sl: newSl };
@@ -294,24 +350,22 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr, existi
 export async function renumberFIRSheet(tok, tabName) {
   try {
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
-    const slData = [];
     let sl = 1;
+    const updates = [];
     for (let i = 0; i < rawRows.length; i++) {
       const b = (rawRows[i][1] || "").toString().trim();
       if (isValidFIRCell(b)) {
-        slData.push({ range: `${tabName}!A${i + 1}`, values: [[sl++]] });
+        updates.push({ range: `${tabName}!A${i + 1}`, values: [[sl++]] });
       }
     }
-    if (!slData.length) return 0;
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SID.fir}/values:batchUpdate`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: slData }),
-      }
-    );
-    return slData.length;
+    if (!updates.length) return 0;
+    
+    // Apply updates
+    for (const update of updates) {
+      await sheetsUpdate(tok, SID.fir, update.range, update.values);
+    }
+    
+    return updates.length;
   } catch (e) {
     console.error("renumberFIRSheet error:", e);
     return 0;
