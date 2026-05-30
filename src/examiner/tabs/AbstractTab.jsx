@@ -229,6 +229,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         expectedSl++;
       }
     }
+    // Sort concatenated CR numbers by fixed value in ascending order by default
+    concat.sort((a, b) => firSortKey(a.fixed) - firSortKey(b.fixed));
     setIssues({ concat, date: dateBad, sl: slBad });
     setScanning(false);
   }

@@ -1875,6 +1875,10 @@ body {
   box-shadow: 0 1px 8px var(--shadow);
 }
 
+.abs-grid .card {
+  margin: 0;
+}
+
 .ctitle {
   font-size: 12px;
   font-weight: 800;
@@ -2062,8 +2066,8 @@ select.inp {
 /* ── Abstract grid ── */
 .abs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
   padding-bottom: 16px;
 }
 
