@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { SID } from "../constants/config.js";
 import { firMatch } from "../utils/helpers.js";
-import { sheetsAppend, sheetsDeleteRow } from "../utils/sheets.js";
+import { sheetsAppend, sheetsDeleteRow, loadAllData } from "../utils/sheets.js";
 import CaseDetail from "../components/CaseDetail.jsx";
 
 export default function FTCTab({ db, setDb, tok, smap }) {
@@ -118,7 +118,16 @@ export default function FTCTab({ db, setDb, tok, smap }) {
         }],
       }));
     }
-    setMsg({ type: "ok", text: `✓ FIR ${displayFIR} moved to Case Numbered.` });
+
+    // Live reload from Google Sheets!
+    setMsg({ type: "loading", text: "Syncing live data from Google Sheets..." });
+    const fresh = await loadAllData(tok, SMAP);
+    if (fresh) {
+      setDb(fresh);
+      setMsg({ type: "ok", text: `✓ FIR ${displayFIR} successfully moved & synced.` });
+    } else {
+      setMsg({ type: "ok", text: `✓ FIR ${displayFIR} moved (offline sync).` });
+    }
     setBusy(false);
     setTimeout(resetAll, 1800);
   }

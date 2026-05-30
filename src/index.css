@@ -2066,7 +2066,7 @@ select.inp {
 /* ── Abstract grid ── */
 .abs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
   padding-bottom: 16px;
   margin: 10px 12px 0;
@@ -2534,7 +2534,7 @@ select.inp {
 /* ─────────────────────────────────────────────────────────────────────────
    RESPONSIVE TWEAKS  (≤ 420 px — typical phone)
 ───────────────────────────────────────────────────────────────────────── */
-@media (max-width: 420px) {
+@media (max-width: 600px) {
   .vt-search-row {
     flex-wrap: wrap;
   }
@@ -2564,6 +2564,38 @@ select.inp {
   .card {
     margin: 8px 8px 0;
     padding: 12px 10px;
+  }
+
+  .abs-tbl {
+    font-size: 11px;
+  }
+  .abs-tbl th {
+    font-size: 9.5px;
+    padding: 4px 4px;
+  }
+  .abs-tbl td {
+    padding: 4px 4px;
+  }
+  .yr-badge {
+    font-size: 9.5px;
+    padding: 1px 5px;
+  }
+}
+
+@media (max-width: 400px) {
+  .abs-tbl {
+    font-size: 10px;
+  }
+  .abs-tbl th {
+    font-size: 9px;
+    padding: 3px 2px;
+  }
+  .abs-tbl td {
+    padding: 3px 2px;
+  }
+  .yr-badge {
+    font-size: 9px;
+    padding: 1px 4px;
   }
 }
 

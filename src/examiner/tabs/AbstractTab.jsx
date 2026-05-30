@@ -448,19 +448,21 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       );
       if (alreadyOk) continue;
 
-      // ── 7. Write sorted rows back into the fir-type slots ───────────
+      // ── 7. Construct entire sheet values to write in ONE call ──────
+      const newSheetValues = [];
       let si = 0;
       for (const item of structure) {
-        if (item.type !== "fir") continue;
-        const src = sorted[si++];
-        const sheetRow = item.rowIdx + 1; // Sheets API is 1-based
-        await sheetsUpdate(
-          tok, SID.fir,
-          `${s.sh}!A${sheetRow}:D${sheetRow}`,
-          [[src.sl, src.cr, src.sec, src.dr]]
-        );
-        totalWritten++;
+        if (item.type === "fir") {
+          const src = sorted[si++];
+          newSheetValues.push([src.sl, src.cr, src.sec, src.dr]);
+        } else {
+          newSheetValues.push(raw[item.rowIdx]);
+        }
       }
+
+      // ── 8. Batch write back to Google Sheets in ONE call ────────────
+      await sheetsUpdate(tok, SID.fir, `${s.sh}!A1:D${raw.length}`, newSheetValues);
+      totalWritten += firRows.length;
 
       // ── 8. Mirror change into React db state ────────────────────────
       setDb(prev => {
