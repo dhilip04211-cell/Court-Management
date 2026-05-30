@@ -1,286 +1,119 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, ROLE_ROUTES } from "./AuthContext.jsx";
+import { useAuth, ROLE_ROUTES, GOOGLE_CLIENT_ID } from "./AuthContext.jsx";
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { loginWithGoogle, gsiReady, user } = useAuth();
     const navigate = useNavigate();
-
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [showPwd, setShowPwd] = useState(false);
+    const btnRef = useRef(null);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!username || !password) {
-            setError("Please enter both username and password.");
-            return;
-        }
+    useEffect(() => {
+        if (user) navigate(ROLE_ROUTES[user.role] || "/", { replace: true });
+    }, [user]);
+
+    useEffect(() => {
+        if (!gsiReady || !btnRef.current) return;
+        window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleCredential,
+            ux_mode: "popup",
+        });
+        window.google.accounts.id.renderButton(btnRef.current, {
+            theme: "filled_black",
+            size: "large",
+            shape: "rectangular",
+            width: 320,
+            text: "signin_with",
+            logo_alignment: "left",
+        });
+    }, [gsiReady]);
+
+    const handleCredential = (credentialResponse) => {
         setLoading(true);
         setError("");
-        // Small delay for UX
-        await new Promise(r => setTimeout(r, 400));
-        const result = login(username, password);
+        const result = loginWithGoogle(credentialResponse);
         setLoading(false);
         if (!result.ok) {
             setError(result.error);
         } else {
-            const dest = ROLE_ROUTES[result.user.role] || "/";
-            navigate(dest, { replace: true });
+            navigate(ROLE_ROUTES[result.user.role] || "/", { replace: true });
         }
     };
 
     return (
-        <div style={styles.bg}>
-            {/* Subtle grid overlay */}
-            <div style={styles.grid} />
+        <div style={s.bg}>
+            <div style={s.grid} />
+            <div style={s.card}>
 
-            <div style={styles.card}>
-                {/* Emblem */}
-                <div style={styles.emblem}>
-                    <div style={styles.emblemCircle}>
-                        <span style={styles.emblemIcon}>⚖️</span>
-                    </div>
-                    <div style={styles.emblemLine} />
+                <div style={s.emblem}>
+                    <div style={s.emblemCircle}>⚖️</div>
+                    <div style={s.emblemLine} />
                 </div>
 
-                <h1 style={styles.title}>COURT CMS</h1>
-                <p style={styles.subtitle}>Court Office Management System</p>
-                <p style={styles.district}>Secure Staff Portal</p>
+                <h1 style={s.title}>COURT CMS</h1>
+                <p style={s.subtitle}>Court Office Management System</p>
+                <p style={s.district}>Secure Staff Portal</p>
 
-                <form onSubmit={handleSubmit} style={styles.form}>
-                    {/* Username */}
-                    <div style={styles.field}>
-                        <label style={styles.label}>USERNAME</label>
-                        <div style={styles.inputWrap}>
-                            <span style={styles.inputIcon}>👤</span>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={e => { setUsername(e.target.value); setError(""); }}
-                                placeholder="Enter your username"
-                                style={styles.input}
-                                autoComplete="username"
-                                autoCapitalize="none"
-                                spellCheck={false}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Password */}
-                    <div style={styles.field}>
-                        <label style={styles.label}>PASSWORD</label>
-                        <div style={styles.inputWrap}>
-                            <span style={styles.inputIcon}>🔒</span>
-                            <input
-                                type={showPwd ? "text" : "password"}
-                                value={password}
-                                onChange={e => { setPassword(e.target.value); setError(""); }}
-                                placeholder="Enter your password"
-                                style={{ ...styles.input, paddingRight: "44px" }}
-                                autoComplete="current-password"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPwd(p => !p)}
-                                style={styles.eyeBtn}
-                                tabIndex={-1}
-                            >
-                                {showPwd ? "🙈" : "👁️"}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Error */}
-                    {error && (
-                        <div style={styles.errorBox}>
-                            ⚠️ {error}
-                        </div>
-                    )}
-
-                    {/* Submit */}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            ...styles.btn,
-                            opacity: loading ? 0.7 : 1,
-                            cursor: loading ? "wait" : "pointer",
-                        }}
-                    >
-                        {loading ? "Authenticating…" : "Sign In →"}
-                    </button>
-                </form>
-
-                <div style={styles.footer}>
-                    Tamil Nadu Judiciary · Court Management System
+                <div style={s.btnWrap}>
+                    {!gsiReady
+                        ? <div style={s.loadingText}>Loading…</div>
+                        : <div ref={btnRef} style={{ opacity: loading ? 0.6 : 1, pointerEvents: loading ? "none" : "auto" }} />
+                    }
                 </div>
+
+                {error && <div style={s.errorBox}>⚠️ {error}</div>}
+
+                <div style={s.footer}>Tamil Nadu Judiciary · Court Management System</div>
             </div>
         </div>
     );
 }
 
-/* ─── Styles ─── */
-const styles = {
+const s = {
     bg: {
-        minHeight: "100vh",
-        minHeight: "100dvh",
-        background: "#0b1120",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-        position: "relative",
-        overflow: "hidden",
+        minHeight: "100dvh", background: "#0b1120",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "16px", position: "relative", overflow: "hidden",
     },
     grid: {
-        position: "absolute",
-        inset: 0,
-        backgroundImage:
-            "linear-gradient(rgba(212,175,55,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.04) 1px, transparent 1px)",
+        position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: "linear-gradient(rgba(212,175,55,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.04) 1px,transparent 1px)",
         backgroundSize: "40px 40px",
-        pointerEvents: "none",
     },
     card: {
-        width: "100%",
-        maxWidth: "420px",
-        background: "rgba(15,23,42,0.95)",
-        border: "1px solid rgba(212,175,55,0.25)",
-        borderRadius: "20px",
-        padding: "clamp(28px, 6vw, 44px)",
-        boxShadow: "0 0 60px rgba(212,175,55,0.08), 0 24px 48px rgba(0,0,0,0.5)",
-        position: "relative",
-        zIndex: 1,
+        width: "100%", maxWidth: "400px", position: "relative", zIndex: 1,
+        background: "rgba(15,23,42,0.95)", border: "1px solid rgba(212,175,55,0.25)",
+        borderRadius: "20px", padding: "clamp(28px,6vw,44px)",
+        boxShadow: "0 0 60px rgba(212,175,55,0.08),0 24px 48px rgba(0,0,0,0.5)",
+        display: "flex", flexDirection: "column", alignItems: "center",
     },
-    emblem: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        marginBottom: "20px",
-    },
+    emblem: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px" },
     emblemCircle: {
-        width: "72px",
-        height: "72px",
-        borderRadius: "50%",
-        background: "rgba(212,175,55,0.1)",
-        border: "2px solid rgba(212,175,55,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: "12px",
+        width: "72px", height: "72px", borderRadius: "50%", fontSize: "32px",
+        background: "rgba(212,175,55,0.1)", border: "2px solid rgba(212,175,55,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px",
     },
-    emblemIcon: {
-        fontSize: "34px",
-    },
-    emblemLine: {
-        width: "60px",
-        height: "2px",
-        background: "linear-gradient(90deg, transparent, #D4AF37, transparent)",
-    },
+    emblemLine: { width: "60px", height: "2px", background: "linear-gradient(90deg,transparent,#D4AF37,transparent)" },
     title: {
-        textAlign: "center",
-        fontSize: "clamp(22px, 5vw, 28px)",
-        fontWeight: "800",
-        letterSpacing: "0.18em",
-        color: "#D4AF37",
-        marginBottom: "6px",
-        fontFamily: "'Georgia', serif",
+        textAlign: "center", fontSize: "clamp(22px,5vw,28px)", fontWeight: "800",
+        letterSpacing: "0.18em", color: "#D4AF37", marginBottom: "6px", fontFamily: "Georgia,serif",
     },
-    subtitle: {
-        textAlign: "center",
-        fontSize: "clamp(12px, 2.5vw, 14px)",
-        color: "#94a3b8",
-        marginBottom: "4px",
-        letterSpacing: "0.04em",
-    },
+    subtitle: { textAlign: "center", fontSize: "13px", color: "#94a3b8", marginBottom: "4px" },
     district: {
-        textAlign: "center",
-        fontSize: "clamp(10px, 2vw, 12px)",
-        color: "rgba(212,175,55,0.6)",
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        marginBottom: "28px",
+        textAlign: "center", fontSize: "11px", color: "rgba(212,175,55,0.6)",
+        letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "32px",
     },
-    form: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-    },
-    field: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-    },
-    label: {
-        fontSize: "11px",
-        fontWeight: "700",
-        letterSpacing: "0.12em",
-        color: "rgba(212,175,55,0.8)",
-    },
-    inputWrap: {
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-    },
-    inputIcon: {
-        position: "absolute",
-        left: "12px",
-        fontSize: "16px",
-        pointerEvents: "none",
-        zIndex: 1,
-    },
-    input: {
-        width: "100%",
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderRadius: "10px",
-        padding: "12px 12px 12px 40px",
-        color: "white",
-        fontSize: "15px",
-        outline: "none",
-        transition: "border-color 0.2s",
-        fontFamily: "inherit",
-    },
-    eyeBtn: {
-        position: "absolute",
-        right: "10px",
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        fontSize: "16px",
-        padding: "4px",
-        lineHeight: 1,
-    },
+    btnWrap: { display: "flex", justifyContent: "center", width: "100%", marginBottom: "16px", minHeight: "44px" },
+    loadingText: { color: "rgba(148,163,184,0.5)", fontSize: "13px", padding: "12px 0" },
     errorBox: {
-        background: "rgba(239,68,68,0.12)",
-        border: "1px solid rgba(239,68,68,0.3)",
-        borderRadius: "8px",
-        padding: "10px 14px",
-        color: "#fca5a5",
-        fontSize: "13px",
-    },
-    btn: {
-        marginTop: "4px",
-        background: "linear-gradient(135deg, #D4AF37 0%, #b8941e 100%)",
-        border: "none",
-        borderRadius: "12px",
-        padding: "14px",
-        color: "#0b1120",
-        fontSize: "15px",
-        fontWeight: "700",
-        letterSpacing: "0.06em",
-        transition: "transform 0.15s, box-shadow 0.15s",
-        boxShadow: "0 4px 20px rgba(212,175,55,0.3)",
+        width: "100%", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)",
+        borderRadius: "8px", padding: "10px 14px", color: "#fca5a5", fontSize: "13px",
+        marginBottom: "16px", textAlign: "center",
     },
     footer: {
-        marginTop: "24px",
-        textAlign: "center",
-        fontSize: "11px",
-        color: "rgba(148,163,184,0.5)",
-        letterSpacing: "0.04em",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        paddingTop: "16px",
+        textAlign: "center", fontSize: "11px", color: "rgba(148,163,184,0.4)",
+        borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "16px", width: "100%",
     },
 };

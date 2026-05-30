@@ -1,25 +1,36 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 export const AuthContext = createContext(null);
-
 export const useAuth = () => useContext(AuthContext);
 
-/* ─── User Roles & Credentials ─── */
-const USERS = [
-    { username: "headclerk", password: "hc@2025", role: "headclerk", label: "Head Clerk", icon: "👨‍💼" },
-    { username: "mc", password: "mc@2025", role: "mc", label: "MC Section", icon: "⚖️" },
-    { username: "examiner", password: "ex@2025", role: "examiner", label: "Examiner", icon: "📋" },
-    { username: "rc", password: "rc@2025", role: "rc", label: "RC Section", icon: "📁" },
-    { username: "admin", password: "admin@2025", role: "admin", label: "Admin", icon: "🔐" },
-];
+export const GOOGLE_CLIENT_ID = "879226759032-983f068npvn7t0npk72nbq8lp402q98a.apps.googleusercontent.com";
 
 export const ROLE_ROUTES = {
-    headclerk: "/headclerk/dashboard",
-    mc: "/mc/mc",
-    examiner: "/examiner/examiner",
-    rc: "/rc/rc",
-    admin: "/",
+    default: "/",
 };
+
+/* ─── Load Google Identity Services script once ─── */
+function loadGsiScript() {
+    return new Promise((resolve) => {
+        if (window.google?.accounts) return resolve();
+        const s = document.createElement("script");
+        s.src = "https://accounts.google.com/gsi/client";
+        s.async = true;
+        s.defer = true;
+        s.onload = resolve;
+        document.head.appendChild(s);
+    });
+}
+
+/* ─── Decode JWT from Google credential ─── */
+function decodeJwt(token) {
+    try {
+        const payload = token.split(".")[1];
+        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    } catch {
+        return null;
+    }
+}
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(() => {
@@ -29,25 +40,40 @@ export function AuthProvider({ children }) {
         } catch { return null; }
     });
 
-    const login = (username, password) => {
-        const found = USERS.find(
-            u => u.username === username.trim().toLowerCase() &&
-                u.password === password
-        );
-        if (!found) return { ok: false, error: "Invalid username or password" };
-        const userData = { username: found.username, role: found.role, label: found.label, icon: found.icon };
+    const [gsiReady, setGsiReady] = useState(false);
+
+    useEffect(() => {
+        loadGsiScript().then(() => setGsiReady(true));
+    }, []);
+
+    const loginWithGoogle = (credentialResponse) => {
+        const payload = decodeJwt(credentialResponse.credential);
+        if (!payload) return { ok: false, error: "Invalid Google response. Please try again." };
+
+        const userData = {
+            email: payload.email || "",
+            name: payload.name || "",
+            picture: payload.picture || null,
+            role: "user",
+            label: payload.name || payload.email,
+            icon: "👤",
+        };
+
         sessionStorage.setItem("court_cms_user", JSON.stringify(userData));
         setUser(userData);
         return { ok: true, user: userData };
     };
 
     const logout = () => {
+        if (user?.email && window.google?.accounts?.id) {
+            window.google.accounts.id.revoke(user.email, () => { });
+        }
         sessionStorage.removeItem("court_cms_user");
         setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, loginWithGoogle, logout, gsiReady }}>
             {children}
         </AuthContext.Provider>
     );
