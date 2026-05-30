@@ -74,7 +74,7 @@ const TABS = [
    EXAMINER
 ═══════════════════════════════════════════════════════════ */
 export default function Examiner() {
-  const { tok } = useAuth();
+  const { tok, requestSheetsToken } = useAuth();
 
   const [db, setDb] = useState(null);
   const [smap, setSmap] = useState(SMAP_DEFAULT);
@@ -117,9 +117,20 @@ export default function Examiner() {
 
   /* ── Load data ──────────────────────────────────────────── */
   useEffect(() => {
-    // Trigger fetch when token arrives (or changes) and we haven't loaded yet.
-    // Also re-triggers if the component re-mounts after a retry (loadPhase reset to "idle").
-    if (tok && loadPhase === "idle") fetchAll(tok);
+    if (loadPhase !== "idle") return;
+    if (tok) {
+      // Token already available — fetch directly
+      fetchAll(tok);
+    } else {
+      // Token missing or expired — silently request a new one first
+      requestSheetsToken().then((freshTok) => {
+        if (freshTok) fetchAll(freshTok);
+        else {
+          setErrorMsg("Could not get Google Sheets access. Please sign out and sign in again.");
+          setLoadPhase("error");
+        }
+      });
+    }
   }, [tok, loadPhase]);
 
   async function fetchAll(token) {
