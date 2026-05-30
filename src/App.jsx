@@ -153,6 +153,7 @@ const sections = [
   { title: "MC Section",  route: "/mc/mc",               icon: "⚖️",  accent: "#10B981" },
   { title: "Examiner",    route: "/examiner/examiner",    icon: "📋",  accent: "#3B82F6" },
   { title: "RC Section",  route: "/rc/rc",                icon: "📁",  accent: "#8B5CF6" },
+  { title: "E-Court",  route: "/ecourt/ecourt",                icon: "📁",  accent: "#8B5CF6" },
 ];
 
 /* ═══════════════════════════════════════════════════════════
