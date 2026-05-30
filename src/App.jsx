@@ -7,8 +7,6 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CLIENT_ID, SCOPE } from "./examiner/constants/config.js";
 
 /* ═══════════════════════════════════════════════════════════
