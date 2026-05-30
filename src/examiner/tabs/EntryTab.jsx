@@ -55,19 +55,28 @@ export default function EntryTab({ db, setDb, tok, smap }) {
   }, [fn, yr, st, dt]);
 
   // Detect edit mode when FIR+year+station match an existing record
-  useEffect(() => {
-    if (!fn || !yr || !st) { setEditMode(false); setExistingRow(null); return; }
-    const sNum = String(parseInt(fn, 10) || fn);
-    const rows = (db.fir[st] || []).filter(r => firMatch(r.cr, sNum, yr));
-    if (rows.length) { setExistingRow(rows[0]); setEditMode(true); }
-    else { setExistingRow(null); setEditMode(false); }
-  }, [fn, yr, st]);
-
-  function loadExisting() {
-    if (!existingRow) return;
-    setUns(existingRow.sec || "");
-    setMsg({ type: "info", text: `Loaded FIR ${existingRow.cr} for editing.` });
+useEffect(() => {
+  if (!fn || !yr || !st) { setEditMode(false); setExistingRow(null); return; }
+  const sNum = String(parseInt(fn, 10) || fn);
+  const rows = (db.fir[st] || []).filter(r => firMatch(r.cr, sNum, yr));
+  if (rows.length) {
+    setExistingRow(rows[0]);
+    setEditMode(true);
+    // ← Auto-load existing data into fields
+    setUns(rows[0].sec || "");
+    if (rows[0].dr) setDt(rows[0].dr);
+  } else {
+    setExistingRow(null);
+    setEditMode(false);
   }
+}, [fn, yr, st]);
+
+function loadExisting() {
+  if (!existingRow) return;
+  setUns(existingRow.sec || "");
+  if (existingRow.dr) setDt(existingRow.dr);   // ← add this line
+  setMsg({ type: "info", text: `Loaded FIR ${existingRow.cr} for editing.` });
+}
 
   function clearDraft() {
     setFn(""); setUns(""); setMsg(null); setEditMode(false); setExistingRow(null);
