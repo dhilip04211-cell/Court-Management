@@ -1,90 +1,124 @@
 import { SID } from "../constants/config.js";
 import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
-const API     = "/api/sheets";
-const API_OPS = "/api/sheets-ops";
+// ─── Call Google Sheets REST API directly from the browser.
+//     No Vercel serverless proxy needed — the OAuth token is already in the client.
+const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
-// ─── Small delay to avoid hitting Vercel's 12 req/s rate limit
-const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+function authHeader(tok) {
+  return { "Authorization": `Bearer ${tok}`, "Content-Type": "application/json" };
+}
 
-// ─── Fetch with automatic retry on 429 (back-off: 1s, 2s, 4s)
-async function apiFetch(url, body, retries = 3) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const r = await fetch(url, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(body),
-    });
-
-    if (r.status === 429 && attempt < retries) {
-      // Rate limited — wait and retry with exponential back-off
-      const wait = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      console.warn(`429 rate limit on ${url}, retrying in ${wait}ms…`);
-      await sleep(wait);
-      continue;
-    }
-
-    if (!r.ok) {
-      let detail = "";
-      try { detail = (await r.json()).error || (await r.text()); } catch (_) {}
-      throw new Error(`API ${url} → ${r.status} ${r.statusText}${detail ? ": " + detail : ""}`);
-    }
-
-    return r.json();
+async function gGet(tok, sid, range) {
+  const url = `${SHEETS_BASE}/${sid}/values/${encodeURIComponent(range)}`;
+  const r = await fetch(url, { headers: authHeader(tok) });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(`Sheets GET ${range} → ${r.status}: ${err?.error?.message || r.statusText}`);
   }
+  const d = await r.json();
+  return d.values || [];
+}
+
+async function gPut(tok, sid, range, values) {
+  const url = `${SHEETS_BASE}/${sid}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+  const r = await fetch(url, {
+    method:  "PUT",
+    headers: authHeader(tok),
+    body:    JSON.stringify({ range, majorDimension: "ROWS", values }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(`Sheets PUT ${range} → ${r.status}: ${err?.error?.message || r.statusText}`);
+  }
+  return true;
+}
+
+async function gAppend(tok, sid, range, values) {
+  const url = `${SHEETS_BASE}/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const r = await fetch(url, {
+    method:  "POST",
+    headers: authHeader(tok),
+    body:    JSON.stringify({ majorDimension: "ROWS", values }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(`Sheets APPEND ${range} → ${r.status}: ${err?.error?.message || r.statusText}`);
+  }
+  return true;
+}
+
+async function gMeta(tok, sid) {
+  const url = `${SHEETS_BASE}/${sid}?fields=sheets.properties`;
+  const r = await fetch(url, { headers: authHeader(tok) });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function gDeleteRow(tok, sid, sheetId, oneBasedRow) {
+  const url = `${SHEETS_BASE}/${sid}:batchUpdate`;
+  const r = await fetch(url, {
+    method:  "POST",
+    headers: authHeader(tok),
+    body: JSON.stringify({
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: "ROWS", startIndex: oneBasedRow - 1, endIndex: oneBasedRow }
+        }
+      }]
+    }),
+  });
+  return r.ok;
+}
+
+async function gInsertRow(tok, sid, sheetId, oneBasedRow) {
+  const url = `${SHEETS_BASE}/${sid}:batchUpdate`;
+  const r = await fetch(url, {
+    method:  "POST",
+    headers: authHeader(tok),
+    body: JSON.stringify({
+      requests: [{
+        insertDimension: {
+          range: { sheetId, dimension: "ROWS", startIndex: oneBasedRow - 1, endIndex: oneBasedRow },
+          inheritFromBefore: false,
+        }
+      }]
+    }),
+  });
+  return r.ok;
 }
 
 // ────────────────────────────────────────────────────────────
-//  Public sheet helpers
+//  Public API (same signatures as before — drop-in replacement)
 // ────────────────────────────────────────────────────────────
 
 export async function sheetsGet(tok, sid, range) {
-  try {
-    const d = await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "GET" });
-    return d.values || [];
-  } catch (e) {
-    console.error("sheetsGet error:", e);
-    throw e;
-  }
+  try { return await gGet(tok, sid, range); }
+  catch (e) { console.error("sheetsGet error:", e); throw e; }
 }
 
 export async function sheetsUpdate(tok, sid, range, vals) {
-  try {
-    await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "PUT", values: vals });
-    return true;
-  } catch (e) {
-    console.error("sheetsUpdate error:", e);
-    return false;
-  }
+  try { return await gPut(tok, sid, range, vals); }
+  catch (e) { console.error("sheetsUpdate error:", e); return false; }
 }
 
 export async function sheetsAppend(tok, sid, range, vals) {
-  try {
-    await apiFetch(API, { token: tok, spreadsheetId: sid, range, method: "APPEND", values: vals });
-    return true;
-  } catch (e) {
-    console.error("sheetsAppend error:", e);
-    return false;
-  }
+  try { return await gAppend(tok, sid, range, vals); }
+  catch (e) { console.error("sheetsAppend error:", e); return false; }
 }
 
 export async function getSheetMeta(tok, sid) {
-  try {
-    return await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "getMeta" });
-  } catch (e) {
-    console.error("getSheetMeta error:", e);
-    return null;
-  }
+  try { return await gMeta(tok, sid); }
+  catch (e) { console.error("getSheetMeta error:", e); return null; }
 }
 
 export async function getSheetIdByName(tok, sid, tabName) {
   try {
-    const data = await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "getSheetIdByName", tabName });
-    return data.sheetId;
-  } catch (e) {
-    console.error("getSheetIdByName error:", e);
-    return null;
-  }
+    const meta = await gMeta(tok, sid);
+    if (!meta) return null;
+    const sheet = (meta.sheets || []).find(s => s.properties.title === tabName);
+    return sheet?.properties?.sheetId ?? null;
+  } catch (e) { console.error("getSheetIdByName error:", e); return null; }
 }
 
 export async function loadStationsFromSheet(tok) {
@@ -101,24 +135,16 @@ export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
   try {
     const sheetId = await getSheetIdByName(tok, sid, tabName);
     if (sheetId === null) return false;
-    await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "deleteRow", tabName, oneBasedRow, sheetId });
-    return true;
-  } catch (e) {
-    console.error("sheetsDeleteRow error:", e);
-    return false;
-  }
+    return await gDeleteRow(tok, sid, sheetId, oneBasedRow);
+  } catch (e) { console.error("sheetsDeleteRow error:", e); return false; }
 }
 
 export async function sheetsInsertRow(tok, sid, tabName, oneBasedRow) {
   try {
     const sheetId = await getSheetIdByName(tok, sid, tabName);
     if (sheetId === null) return false;
-    await apiFetch(API_OPS, { token: tok, spreadsheetId: sid, operation: "insertRow", tabName, oneBasedRow, sheetId });
-    return true;
-  } catch (e) {
-    console.error("sheetsInsertRow error:", e);
-    return false;
-  }
+    return await gInsertRow(tok, sid, sheetId, oneBasedRow);
+  } catch (e) { console.error("sheetsInsertRow error:", e); return false; }
 }
 
 export async function sheetsWriteRow(tok, sid, tabName, oneBasedRow, vals) {
@@ -166,16 +192,14 @@ export async function loadAllData(tok, smap) {
   const fir = {};
   for (const s of smap) {
     fir[s.sh] = await loadFIRSheet(tok, s.sh);
-    await sleep(150); // small pause between stations to avoid 429
   }
 
-  const pr  = await sheetsGet(tok, SID.pending,  "Sheet1!A:L");
-  await sleep(150);
-  const dr2 = await sheetsGet(tok, SID.disposal, "Sheet1!A:L");
-  await sleep(150);
-  const nr  = await sheetsGet(tok, SID.nonval,   "Sheet1!A:G");
-  await sleep(150);
-  const cnr = await sheetsGet(tok, SID.casenum,  "Sheet1!A:M");
+  const [pr, dr2, nr, cnr] = await Promise.all([
+    sheetsGet(tok, SID.pending,  "Sheet1!A:L"),
+    sheetsGet(tok, SID.disposal, "Sheet1!A:L"),
+    sheetsGet(tok, SID.nonval,   "Sheet1!A:G"),
+    sheetsGet(tok, SID.casenum,  "Sheet1!A:M"),
+  ]);
 
   const pend = pr.slice(1)
     .map((r, i) => ({
@@ -220,7 +244,6 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
     const appendRes = await sheetsAppend(tok, SID.fir, `${tabName}!A:D`, [["", newCr, newSec, newDr]]);
     if (!appendRes) return { ok: false, ri: -1 };
 
-    await sleep(300);
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     const dataRows = [];
     for (let i = 0; i < rawRows.length; i++) {
@@ -241,14 +264,23 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
     }
     const newSl = dataRows.findIndex(r => r.ri === newRi) + 1;
 
-    // Update only changed serial numbers, with 100ms gap each
+    // Batch all sl updates in a single batchUpdate call — 1 API call instead of N
+    const slUpdates = [];
     for (let i = 0; i < dataRows.length; i++) {
       const expectedSl = String(i + 1);
       const currentSl  = (rawRows[dataRows[i].ri - 1][0] || "").toString().trim();
       if (currentSl !== expectedSl) {
-        await sheetsUpdate(tok, SID.fir, `${tabName}!A${dataRows[i].ri}`, [[i + 1]]);
-        await sleep(100); // ← prevent 429 on rapid sequential writes
+        slUpdates.push({ range: `${tabName}!A${dataRows[i].ri}`, values: [[i + 1]] });
       }
+    }
+
+    if (slUpdates.length > 0) {
+      const url = `${SHEETS_BASE}/${SID.fir}/values:batchUpdate`;
+      await fetch(url, {
+        method:  "POST",
+        headers: authHeader(tok),
+        body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: slUpdates }),
+      });
     }
 
     return { ok: true, ri: newRi, sl: newSl };
@@ -262,14 +294,23 @@ export async function renumberFIRSheet(tok, tabName) {
   try {
     const rawRows = await sheetsGet(tok, SID.fir, `${tabName}!A:D`);
     let sl = 1;
+    const data = [];
     for (let i = 0; i < rawRows.length; i++) {
       const b = (rawRows[i][1] || "").toString().trim();
       if (isValidFIRCell(b)) {
-        await sheetsUpdate(tok, SID.fir, `${tabName}!A${i + 1}`, [[sl++]]);
-        await sleep(100); // ← prevent 429
+        data.push({ range: `${tabName}!A${i + 1}`, values: [[sl++]] });
       }
     }
-    return sl - 1;
+    if (!data.length) return 0;
+
+    // Single batchUpdate call for all serial numbers
+    const url = `${SHEETS_BASE}/${SID.fir}/values:batchUpdate`;
+    const r = await fetch(url, {
+      method:  "POST",
+      headers: authHeader(tok),
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
+    });
+    return r.ok ? sl - 1 : 0;
   } catch (e) {
     console.error("renumberFIRSheet error:", e);
     return 0;
