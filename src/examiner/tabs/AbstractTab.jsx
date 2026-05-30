@@ -284,6 +284,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         name: "Section-wise", headers: ["#", "Section U/s", "FIRs"],
         rows: secAll.map(([k, v], i) => [i + 1, k, v])
       },
+      {
+        name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"],
+        rows: matrixRows
+      }
     ]);
   }
   function handleExportList() {
@@ -305,9 +309,23 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     return arr;
   }, [issues?.concat, concatSortAsc]);
 
+  function handleExportStationExcel() {
+    exportToExcel("FIR_Station_Wise.xlsx", [{
+      name: "Station-wise", headers: ["Code", "Station", "FIRs", "%"],
+      rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])
+    }]);
+  }
+
   function handleExportStationWord() {
     handleExportWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"],
       stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]));
+  }
+
+  function handleExportYearExcel() {
+    exportToExcel("FIR_Year_Wise.xlsx", [{
+      name: "Year-wise", headers: ["Year", "FIRs", "%"],
+      rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])
+    }]);
   }
 
   function handleExportYearWord() {
@@ -315,14 +333,81 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]));
   }
 
+  function handleExportMonthExcel() {
+    exportToExcel("FIR_Month_Wise.xlsx", [{
+      name: "Month-wise", headers: ["Month", "FIRs"],
+      rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; })
+    }]);
+  }
+
   function handleExportMonthWord() {
     handleExportWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"],
       monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }));
   }
 
+  const matrixYears = allYears;
+  const matrixMap = useMemo(() => {
+    const map = {};
+    for (const r of filtered) {
+      const key = `${r.stSh}::${r.yr}`;
+      map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  }, [filtered]);
+
+  const matrixYearTotals = useMemo(() => {
+    const totals = {};
+    for (const r of filtered) {
+      if (!r.yr) continue;
+      totals[r.yr] = (totals[r.yr] || 0) + 1;
+    }
+    return totals;
+  }, [filtered]);
+
+  const matrixRows = useMemo(() => {
+    const rows = [];
+    const activeStations = stTot.filter(s =>
+      matrixYears.some(y => (matrixMap[`${s.sh}::${y}`] || 0) > 0)
+    );
+    for (const s of activeStations) {
+      const row = [s.lb, ...matrixYears.map(y => matrixMap[`${s.sh}::${y}`] || 0)];
+      const total = row.slice(1).reduce((a, v) => a + v, 0);
+      rows.push([...row, total]);
+    }
+    const grandTotal = matrixYears.reduce((sum, y) => sum + (matrixYearTotals[y] || 0), 0);
+    if (matrixYears.length) rows.push(["Year Total", ...matrixYears.map(y => matrixYearTotals[y] || 0), grandTotal]);
+    return rows;
+  }, [matrixYears, matrixMap, matrixYearTotals, stTot]);
+
+  function handleExportSectionExcel() {
+    exportToExcel("FIR_Section_Wise.xlsx", [{
+      name: "Section-wise", headers: ["#", "Section U/s", "FIRs"],
+      rows: secAll.map(([k, v], i) => [i + 1, k, v])
+    }]);
+  }
+
   function handleExportSectionWord() {
     handleExportWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"],
       secAll.map(([k, v], i) => [i + 1, k, v]));
+  }
+
+  function handleExportMatrixExcel() {
+    exportToExcel("Station_Year_Matrix.xlsx", [{
+      name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"],
+      rows: matrixRows
+    }]);
+  }
+
+  function handleExportMatrixWord() {
+    handleExportWord("Station_Year_Matrix.doc", "Station × Year Matrix", ["Station", ...matrixYears, "Total"],
+      matrixRows);
+  }
+
+  function handleExportRecentExcel() {
+    exportToExcel("FIR_Recent_Dates.xlsx", [{
+      name: "Recent Dates", headers: ["Date", "FIRs"],
+      rows: daySort.map(([k, v]) => [k, v])
+    }]);
   }
 
   function handleExportRecentWord() {
@@ -414,10 +499,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           <div className="abs-grid">
             {/* Station-wise */}
             <div className="card">
-              <div className="ctitle">
-              📍 Station-wise
-              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportStationWord}>⬇ Word</button>
-            </div>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>📍 Station-wise</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportStationExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportStationWord}>⬇ Word</button>
+                </div>
+              </div>
               <table className="abs-tbl">
                 <thead><tr><th>Code</th><th>Station</th><th>FIRs</th><th>%</th></tr></thead>
                 <tbody>
@@ -436,10 +524,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Year-wise */}
             <div className="card">
-              <div className="ctitle">
-              📅 Year-wise
-              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportYearWord}>⬇ Word</button>
-            </div>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>📅 Year-wise</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportYearExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportYearWord}>⬇ Word</button>
+                </div>
+              </div>
               <table className="abs-tbl">
                 <thead><tr><th>Year</th><th>FIRs</th><th>%</th></tr></thead>
                 <tbody>
@@ -457,10 +548,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Month-wise */}
             <div className="card">
-              <div className="ctitle">
-              📆 Month-wise
-              <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportMonthWord}>⬇ Word</button>
-            </div>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>📆 Month-wise</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportMonthExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportMonthWord}>⬇ Word</button>
+                </div>
+              </div>
               <table className="abs-tbl">
                 <thead><tr><th>Month</th><th>FIRs</th></tr></thead>
                 <tbody>
@@ -484,9 +578,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Recent 30 dates */}
             <div className="card">
-              <div className="ctitle">
-                📋 Recent 30 Dates
-                <button className="btn btn-o btn-sm" style={{ marginLeft: "auto" }} onClick={handleExportRecentWord}>⬇ Word</button>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>📋 Recent 30 Dates</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportRecentExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportRecentWord}>⬇ Word</button>
+                </div>
               </div>
               <table className="abs-tbl">
                 <thead><tr><th>Date</th><th>FIRs</th></tr></thead>
@@ -506,10 +603,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Section-wise */}
             <div className="card">
-              <div className="ctitle">
-                ⚖ Section U/s-wise
-                <button className="btn btn-o btn-sm" style={{ marginLeft: 8 }} onClick={handleExportSectionWord}>⬇ Word</button>
-                <span style={{ marginLeft: "auto", fontWeight: 400, color: "var(--txt3)", fontSize: 9 }}>{secShow.length}/{secAll.length}</span>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>⚖ Section U/s-wise</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportSectionExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportSectionWord}>⬇ Word</button>
+                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 9 }}>{secShow.length}/{secAll.length}</span>
+                </div>
               </div>
               <div className="search-wrap" style={{ marginBottom: 10 }}>
                 <input className="inp" type="text" value={secSearch}
@@ -536,7 +636,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
             {/* Station × Year Matrix */}
             <div className="card" style={{ gridColumn: "1/-1" }}>
-              <div className="ctitle">📊 Station × Year Matrix</div>
+              <div className="ctitle" style={{ display: "flex", alignItems: "center" }}>
+                <span>📊 Station × Year Matrix</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button className="btn btn-o btn-sm" onClick={handleExportMatrixExcel}>⬇ Excel</button>
+                  <button className="btn btn-o btn-sm" onClick={handleExportMatrixWord}>⬇ Word</button>
+                </div>
+              </div>
               <StationYearMatrix allFirs={filtered} years={allYears} stTot={stTot} setFilterSt={setFilterSt} setFilterYr={setFilterYr} />
             </div>
 
