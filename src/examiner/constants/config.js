@@ -6,7 +6,6 @@ export const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 /**
  * Google Sheets IDs — read from Vercel environment variables only.
- * Set these in Vercel → Settings → Environment Variables with VITE_ prefix.
  */
 export const SID = {
   fir:      import.meta.env.VITE_FIR_SHEET_ID,
@@ -17,16 +16,95 @@ export const SID = {
 };
 
 /**
+ * STATION_ALIAS_MAP
+ * Built from StationMap sheet screenshot.
+ * Key   = any raw name that may appear in pending/disposal/fir data (lowercased, trimmed)
+ * Value = canonical ALLStation label used in SMAP
+ *
+ * This is what fixes "Linked Cases = 0":
+ * The FIR sheet has station names like "T.Palur" / "T Palur" / "TPalur",
+ * while pending/disposal sheets may have "T.Palur Police Station" etc.
+ * normalizeStation() maps all variants → canonical label.
+ */
+export const STATION_ALIAS_MAP = {
+  // ── Jayankondam ──────────────────────────────────────────
+  "jayankondam":                     "Jayankondam",
+  "jayankondam ps":                  "Jayankondam",
+  "jayankondam police station":      "Jayankondam",
+  "police station ariyalur":         "Jayankondam",   // row 3 in screenshot
+  "jkm":                             "Jayankondam",
+
+  // ── Vikkiramangalam ──────────────────────────────────────
+  "vikkiramangalam":                 "Vikkiramangalam",
+  "vikramangalam":                   "Vikkiramangalam",
+  "police station venganam":         "Vikkiramangalam",
+  "venganam":                        "Vikkiramangalam",
+  "police station vikramangalam":    "Vikkiramangalam",
+  "vkm":                             "Vikkiramangalam",
+
+  // ── T.Palur ──────────────────────────────────────────────
+  "t.palur":                         "T.Palur",
+  "tpalur":                          "T.Palur",
+  "t palur":                         "T.Palur",
+  "t. palur":                        "T.Palur",
+  "palur":                           "T.Palur",
+  "police station keelapa":          "T.Palur",
+  "police station keelaperambalur":  "T.Palur",
+  "tpalur police station":           "T.Palur",
+  "t.palur police station":          "T.Palur",
+  "t.palur ps":                      "T.Palur",
+
+  // ── PEW Ariyalur ─────────────────────────────────────────
+  "pew ariyalur":                    "PEW Ariyalur",
+  "pew":                             "PEW Ariyalur",
+  "nb cid trichy":                   "PEW Ariyalur",
+  "nb cid":                          "PEW Ariyalur",
+  "pew ariyalur (pr":                "PEW Ariyalur",
+  "pew ariyalur ps":                 "PEW Ariyalur",
+
+  // ── AWPS Jayankondam ─────────────────────────────────────
+  "awps jayankondam":                "AWPS Jayankondam",
+  "awps":                            "AWPS Jayankondam",
+  "all women ps jayankondam":        "AWPS Jayankondam",
+  "all women police station":        "AWPS Jayankondam",
+  "rp viruthachalam":                "AWPS Jayankondam",
+  "rp viruthachalan":                "AWPS Jayankondam",
+  "all women ps jayank":             "AWPS Jayankondam",
+  "awps jkm":                        "AWPS Jayankondam",
+
+  // ── DCB Ariyalur ─────────────────────────────────────────
+  "dcb ariyalur":                    "DCB Ariyalur",
+  "dcb":                             "DCB Ariyalur",
+  "dcb ariyalur(district c":         "DCB Ariyalur",
+  "dcb ariyalur (district crime":    "DCB Ariyalur",
+  "district crime branch ariyalur":  "DCB Ariyalur",
+  "rpf trichy":                      "DCB Ariyalur",
+};
+
+/**
+ * normalizeStation(name) → canonical station label
+ * Falls back to the original trimmed name if no alias found.
+ */
+export function normalizeStation(name) {
+  if (!name) return "";
+  const key = name.toString().trim().toLowerCase();
+  return STATION_ALIAS_MAP[key] || name.toString().trim();
+}
+
+/**
  * Police Stations Map
+ * sh  = Google Sheet tab name
+ * lb  = canonical label (must match STATION_ALIAS_MAP values)
+ * al  = alias list (all lowercased) — kept for firMatch compatibility
  */
 export const SMAP = [
-  { sh:"JKM",     lb:"Jayankondam",      al:["jayankondam","jkm","jayankondam police station"] },
-  { sh:"VKM",     lb:"Vikkiramangalam",  al:["vikkiramangalam","vikramangalam","vkm","venganam"] },
+  { sh:"JKM",     lb:"Jayankondam",      al:["jayankondam","jkm","jayankondam police station","police station ariyalur"] },
+  { sh:"VKM",     lb:"Vikkiramangalam",  al:["vikkiramangalam","vikramangalam","vkm","venganam","police station venganam"] },
   { sh:"Sheet7",  lb:"VKM (Extra)",      al:["sheet7","vkm extra","vkm ps record"] },
-  { sh:"T.PALUR", lb:"T.Palur",          al:["t.palur","tpalur","palur","t palur","t. palur","t.palur police"] },
+  { sh:"T.PALUR", lb:"T.Palur",          al:["t.palur","tpalur","palur","t palur","t. palur","t.palur police","police station keelapa"] },
   { sh:"PEW",     lb:"PEW Ariyalur",     al:["pew","pew ariyalur","nb cid","nb cid trichy"] },
-  { sh:"AWPS",    lb:"AWPS Jayankondam", al:["awps","awps jayankondam","all women"] },
-  { sh:"DCB",     lb:"DCB Ariyalur",     al:["dcb","dcb ariyalur","ariyalur dcb"] },
+  { sh:"AWPS",    lb:"AWPS Jayankondam", al:["awps","awps jayankondam","all women","rp viruthachalam","rp viruthachalan"] },
+  { sh:"DCB",     lb:"DCB Ariyalur",     al:["dcb","dcb ariyalur","ariyalur dcb","rpf trichy"] },
 ];
 
 /**
@@ -41,6 +119,26 @@ export const ACTS = [
   { id:"TNPHW",  label:"TNPHW Act",       short:"TNPHW" },
   { id:"MVA",    label:"MV Act",          short:"MVA" },
   { id:"PC",     label:"PC Act",          short:"PC Act" },
+];
+
+/**
+ * Case Numbered sheet column headers
+ * Order must match what execute() writes and loadAllData() reads.
+ */
+export const CASENUM_HEADERS = [
+  "FIR Number",       // A  → fn
+  "Station",          // B  → sta
+  "FIR Section",      // C  → sec
+  "Date Received",    // D  → dr
+  "Case Number",      // E  → cn
+  "Parties",          // F  → pt
+  "Advocate",         // G  → adv
+  "Date of Reg",      // H  → dreg
+  "Next Date",        // I  → nxt
+  "Case Type",        // J  → type
+  "Case Section",     // K  → sec2
+  "Nature",           // L  → nat
+  "Description",      // M  → des
 ];
 
 /**
