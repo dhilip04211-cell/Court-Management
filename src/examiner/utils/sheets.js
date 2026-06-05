@@ -1,8 +1,7 @@
-import { SID } from "../constants/config.js";
+import { SID, CASENUM_HEADERS, normalizeStation } from "../constants/config.js";
 import { isValidFIRCell, parseFIR, firSortKey, normalizeFIRCell } from "./helpers.js";
 
 // ─── Call Google Sheets REST API directly from the browser.
-//     No Vercel serverless proxy needed — the OAuth token is already in the client.
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
 function authHeader(tok) {
@@ -88,9 +87,9 @@ async function gInsertRow(tok, sid, sheetId, oneBasedRow) {
   return r.ok;
 }
 
-// ────────────────────────────────────────────────────────────
-//  Public API (same signatures as before — drop-in replacement)
-// ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
+//  Public API
+// ──────────────────────────────────────────────────────────
 
 export async function sheetsGet(tok, sid, range) {
   try { return await gGet(tok, sid, range); }
@@ -188,6 +187,25 @@ export async function loadFIRSheet(tok, tabName) {
   return data;
 }
 
+// ──────────────────────────────────────────────────────────
+//  ensureCasenumHeaders
+//  Checks if Sheet1!A1 of the casenum sheet is empty.
+//  If so, inserts the header row first.
+// ──────────────────────────────────────────────────────────
+export async function ensureCasenumHeaders(tok) {
+  try {
+    const rows = await gGet(tok, SID.casenum, "Sheet1!A1:M1");
+    const firstCell = (rows[0]?.[0] || "").toString().trim();
+    if (!firstCell) {
+      // Sheet is empty — write headers to row 1
+      await gPut(tok, SID.casenum, "Sheet1!A1:M1", [CASENUM_HEADERS]);
+      console.log("✓ CaseNum headers inserted.");
+    }
+  } catch (e) {
+    console.warn("ensureCasenumHeaders: could not check/write headers:", e);
+  }
+}
+
 export async function loadAllData(tok, smap) {
   const fir = {};
   for (const s of smap) {
@@ -201,11 +219,14 @@ export async function loadAllData(tok, smap) {
     sheetsGet(tok, SID.casenum,  "Sheet1!A:M"),
   ]);
 
+  // ── FIX: normalize station names in pending/disposal/casenum ──
   const pend = pr.slice(1)
     .map((r, i) => ({
       sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
       dreg: r[4]||"", nxt: r[5]||"", pur: r[6]||"", sec: r[7]||"",
-      sta: r[8]||"", fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
+      // normalize station → canonical label
+      sta: normalizeStation(r[8]||""),
+      fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
@@ -214,7 +235,8 @@ export async function loadAllData(tok, smap) {
     .map((r, i) => ({
       sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
       dreg: r[4]||"", ddec: r[5]||"", dnat: r[6]||"", sec: r[7]||"",
-      sta: r[8]||"", fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
+      sta: normalizeStation(r[8]||""),
+      fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
@@ -222,14 +244,17 @@ export async function loadAllData(tok, smap) {
   const nv = nr.slice(1)
     .map((r, i) => ({
       sno: r[0]||"", cn: r[1]||"", fn: r[2]||"", rp: r[3]||"",
-      sta: r[4]||"", desc: r[5]||"", rem: r[6]||"",
+      sta: normalizeStation(r[4]||""),
+      desc: r[5]||"", rem: r[6]||"",
       ri: i + 2,
     }))
     .filter(r => r.fn || r.cn);
 
   const cnum = cnr.slice(1)
     .map((r, i) => ({
-      fn: r[0]||"", sta: r[1]||"", sec: r[2]||"", dr: r[3]||"",
+      fn: r[0]||"",
+      sta: normalizeStation(r[1]||""),
+      sec: r[2]||"", dr: r[3]||"",
       cn: r[4]||"", pt: r[5]||"", adv: r[6]||"", dreg: r[7]||"",
       nxt: r[8]||"", type: r[9]||"", sec2: r[10]||"", nat: r[11]||"", des: r[12]||"",
       ri: i + 2,
@@ -264,7 +289,6 @@ export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
     }
     const newSl = dataRows.findIndex(r => r.ri === newRi) + 1;
 
-    // Batch all sl updates in a single batchUpdate call — 1 API call instead of N
     const slUpdates = [];
     for (let i = 0; i < dataRows.length; i++) {
       const expectedSl = String(i + 1);
@@ -303,7 +327,6 @@ export async function renumberFIRSheet(tok, tabName) {
     }
     if (!data.length) return 0;
 
-    // Single batchUpdate call for all serial numbers
     const url = `${SHEETS_BASE}/${SID.fir}/values:batchUpdate`;
     const r = await fetch(url, {
       method:  "POST",
