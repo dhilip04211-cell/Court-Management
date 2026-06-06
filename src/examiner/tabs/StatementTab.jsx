@@ -198,23 +198,33 @@ export default function StatementTab({ db, setDb, tok, smap }) {
  const prevPendingFirs = useMemo(() => {
   if (!submitted) return [];
 
-  // FIRs still in FIR Pending register received on/before prev month end
+  // Step 1: FIR Pending list — received on/before prev month end
   const fromPending = allFirs.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && dateNum(p) <= prevEndNum;
   });
 
-  // FIRs already case-numbered (disposed) received on/before prev month end
+  // Step 2: CNum list — received on/before prev month end
   const fromCnum = allCnum.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && dateNum(p) <= prevEndNum;
   });
 
-  // Deduplicate by FIR number (fn in cnum matches cr in pending)
-  const seen = new Set(fromPending.map(r => r.cr));
-  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+  // Step 3: Subtract CNum (disposed) from total
+  // (fromPending + fromCnum) - fromCnum = fromPending
+  // But implementing explicitly as you specified:
+  const cnumFnSet = new Set(fromCnum.map(r => r.fn).filter(Boolean));
 
-  return [...fromPending, ...extra];
+  const combined = [
+    ...fromPending,
+    ...fromCnum.filter(r => r.fn && !fromPending.some(p => p.cr === r.fn)),
+  ];
+
+  return combined.filter(r => {
+    const firNo = r.cr || r.fn;
+    return !cnumFnSet.has(firNo);
+  });
+
 }, [allFirs, allCnum, prevEndNum, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
