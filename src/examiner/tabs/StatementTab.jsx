@@ -51,30 +51,17 @@ function firYear(cr) {
   return m[m.length - 1] || "";
 }
 
-/* Build year options 1999 → current+1 */
-// Replace the month/year selects with this logic
+/* ── Year / Month minimum boundaries ── */
 const MIN_YEAR  = 2026;
 const MIN_MONTH = 5; // May
 
-// Year options — only 2026 onwards
+/* Build year options — only MIN_YEAR onwards */
 function buildYearOptions() {
   const cur = new Date().getFullYear();
   const out = [];
   for (let y = cur + 1; y >= MIN_YEAR; y--) out.push(y);
   return out;
 }
-
-// In the month select — filter months before May if year is 2026
-<select className="inp" value={selMonth}
-  onChange={e => { setSelMonth(e.target.value); setSubmitted(false); setFilterYr(null); }}>
-  {Array.from({ length: 12 }, (_, i) => {
-    const v = pad2(i + 1);
-    const monthNum = i + 1;
-    // Hide months before May if selected year is 2026
-    if (parseInt(selYear) === MIN_YEAR && monthNum < MIN_MONTH) return null;
-    return <option key={v} value={v}>{MON_NAMES[i + 1]}</option>;
-  })}
-</select>
 
 /* ─────────────────────────────────────────────────────────────────
    EXCEL EXPORT
@@ -168,31 +155,33 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   const COURT_NAME = "Judicial Magistrate No.I, Jayankondam";
   const DISTRICT   = "Ariyalur";
 
-  /* form state */
+  /* ── Default month/year — snap to May 2026 minimum ── */
   const now = new Date();
-  const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
-  const [selYear,  setSelYear]  = useState(String(now.getFullYear()));
+  const defaultYear  = Math.max(now.getFullYear(), MIN_YEAR);
+  const defaultMonth = (defaultYear === MIN_YEAR && now.getMonth() + 1 < MIN_MONTH)
+    ? pad2(MIN_MONTH)
+    : pad2(now.getMonth() + 1);
+
+  const [selMonth, setSelMonth] = useState(defaultMonth);
+  const [selYear,  setSelYear]  = useState(String(defaultYear));
   const [submitted, setSubmitted] = useState(false);
-  const [filterYr, setFilterYr] = useState(null);
+  const [filterYr,  setFilterYr]  = useState(null);
 
   const mm   = parseInt(selMonth, 10);
   const yyyy = parseInt(selYear,  10);
 
-  /* ── Date boundary numerics ──
-     prevEnd  = last date of previous month  e.g. 30.04.2026
-     thisEnd  = last date of selected month  e.g. 31.05.2026
-  */
+  /* ── Date boundary numerics ── */
   const prevMM    = mm === 1 ? 12 : mm - 1;
   const prevYYYY  = mm === 1 ? yyyy - 1 : yyyy;
   const prevEndDD = lastDay(prevYYYY, prevMM);
   const thisEndDD = lastDay(yyyy, mm);
 
-  const prevEnd    = fmtDMY(prevEndDD, prevMM, prevYYYY);
-  const thisEnd    = fmtDMY(thisEndDD, mm, yyyy);
+  const prevEnd = fmtDMY(prevEndDD, prevMM, prevYYYY);
+  const thisEnd = fmtDMY(thisEndDD, mm, yyyy);
 
   /* numeric YYYYMMDD boundaries for fast comparison */
-  const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;  // ≤ this → prev pending
-  const thisEndNum = yyyy     * 10000 + mm     * 100 + thisEndDD;  // ≤ this → current pending
+  const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;
+  const thisEndNum = yyyy     * 10000 + mm     * 100 + thisEndDD;
 
   /* ── All FIRs flat (from FIR Pending register) ── */
   const allFirs = useMemo(() => {
@@ -209,74 +198,71 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 
   /* ─────────────────────────────────────────────────────────────
      PENDING (PREV MONTH END)
-     = FIRs in pending register whose dr ≤ last day of prev month
-     Source: FIR Pending list only
-  ───────────────────────────────────────────────────────────
-*/
-const prevPendingFirs = useMemo(() => {
-  if (!submitted) return [];
 
-  // Step 1: FIR Pending — dr ≤ prev month end
-  const fromPending = allFirs.filter(r => {
-    const p = parseDateFlex(r.dr);
-    return p && dateNum(p) <= prevEndNum;
-  });
-
-  // Step 2: CNum — only entries within prev month
-  // May 2026 special case: use dr instead of dreg
-  const isMay2026 = prevMM === 5 && prevYYYY === 2026;
-
-  const fromCnum = allCnum.filter(r => {
-    if (isMay2026) {
-      // Use date of received (dr)
-      const p = parseDateFlex(r.dr);
-      return p && p.mm === prevMM && p.yyyy === prevYYYY;
-    } else {
-      // Use date of registration (dreg)
-      const p = parseDateFlex(r.dreg);
-      return p && p.mm === prevMM && p.yyyy === prevYYYY;
-    }
-  });
-
-  // Deduplicate — avoid double counting if same FIR exists in both
-  const seen = new Set(fromPending.map(r => r.cr));
-  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
-
-  return [...fromPending, ...extra];
-
-}, [allFirs, allCnum, prevEndNum, prevMM, prevYYYY, submitted]);
-/* ─────────────────────────────────────────────────────────────
-     INSTITUTION (ADDED THIS MONTH)
-     = FIRs in pending register whose dr is within selected MM/YYYY
-     Source: FIR Pending list only
+     Formula:
+       FIR Pending list  →  dr ≤ prev month last date  (always)
+       CNum list         →  prev month == May 2026 ? dr in May 2026
+                                                    : dreg in prev month
+     Deduplicate by FIR number before combining.
   ───────────────────────────────────────────────────────────── */
-const institutionFirs = useMemo(() => {
-  if (!submitted) return [];
+  const prevPendingFirs = useMemo(() => {
+    if (!submitted) return [];
 
-  // FIRs still in FIR Pending register received in selected month
-  const fromPending = allFirs.filter(r => {
-    const p = parseDateFlex(r.dr);
-    return p && p.mm === mm && p.yyyy === yyyy;
-  });
+    /* Step 1 — FIR Pending: dr ≤ prev month end */
+    const fromPending = allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p && dateNum(p) <= prevEndNum;
+    });
 
-  // FIRs already case-numbered received in selected month
-  const fromCnum = allCnum.filter(r => {
-    const p = parseDateFlex(r.dr);
-    return p && p.mm === mm && p.yyyy === yyyy;
-  });
+    /* Step 2 — CNum: only entries within prev month
+       May 2026 special case → use dr (date of received)
+       All other months      → use dreg (date of registration) */
+    const isMay2026 = prevMM === 5 && prevYYYY === 2026;
 
-  // Deduplicate — cnum fn matches pending cr
-  const seen = new Set(fromPending.map(r => r.cr));
-  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+    const fromCnum = allCnum.filter(r => {
+      if (isMay2026) {
+        const p = parseDateFlex(r.dr);
+        return p && p.mm === prevMM && p.yyyy === prevYYYY;
+      } else {
+        const p = parseDateFlex(r.dreg);
+        return p && p.mm === prevMM && p.yyyy === prevYYYY;
+      }
+    });
 
-  return [...fromPending, ...extra];
-}, [allFirs, allCnum, mm, yyyy, submitted]);
+    /* Step 3 — Deduplicate: skip cnum entries already in pending list */
+    const seen = new Set(fromPending.map(r => r.cr));
+    const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+
+    return [...fromPending, ...extra];
+  }, [allFirs, allCnum, prevEndNum, prevMM, prevYYYY, submitted]);
+
+  /* ─────────────────────────────────────────────────────────────
+     INSTITUTION (ADDED THIS MONTH)
+     FIR Pending dr in selected MM/YYYY
+     + CNum dr in selected MM/YYYY (deduplicated)
+  ───────────────────────────────────────────────────────────── */
+  const institutionFirs = useMemo(() => {
+    if (!submitted) return [];
+
+    const fromPending = allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p && p.mm === mm && p.yyyy === yyyy;
+    });
+
+    const fromCnum = allCnum.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p && p.mm === mm && p.yyyy === yyyy;
+    });
+
+    const seen = new Set(fromPending.map(r => r.cr));
+    const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+
+    return [...fromPending, ...extra];
+  }, [allFirs, allCnum, mm, yyyy, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
-     = Case Numbered entries whose dreg (Date of Registration)
-       is within selected MM/YYYY
-     Source: Case Numbered list only
+     CNum entries where dreg is within selected MM/YYYY
   ───────────────────────────────────────────────────────────── */
   const disposalCases = useMemo(() => {
     if (!submitted) return [];
@@ -288,8 +274,7 @@ const institutionFirs = useMemo(() => {
 
   /* ─────────────────────────────────────────────────────────────
      PENDING (THIS MONTH END)
-     = ALL FIRs currently present in FIR Pending register
-     Source: FIR Pending list only (live count)
+     All FIRs currently in FIR Pending register (live count)
   ───────────────────────────────────────────────────────────── */
   const totalPending = allFirs.length;
 
@@ -303,7 +288,7 @@ const institutionFirs = useMemo(() => {
     return [...ys].sort((a, b) => Number(b) - Number(a));
   }, [allFirs]);
 
-  /* ── Yearwise PENDING count (from FIR pending list — live) ── */
+  /* ── Yearwise PENDING count (live from FIR pending list) ── */
   const pendingByYear = useMemo(() => {
     const m = {};
     allFirs.forEach(r => { m[r.firYr] = (m[r.firYr] || 0) + 1; });
@@ -391,15 +376,15 @@ const institutionFirs = useMemo(() => {
   const fileLabel      = `${pad2(mm)}_${yyyy}`;
 
   /* ── Institution list sorted ── */
- const institutionSorted = useMemo(() => {
-  return [...institutionFirs].sort((a, b) => {
-    const na = a.cr || a.fn || "";
-    const nb = b.cr || b.fn || "";
-    const ka = Number(firYear(na)) * 100000 + parseInt(na, 10);
-    const kb = Number(firYear(nb)) * 100000 + parseInt(nb, 10);
-    return ka - kb;
-  });
-}, [institutionFirs]);
+  const institutionSorted = useMemo(() => {
+    return [...institutionFirs].sort((a, b) => {
+      const na = a.cr || a.fn || "";
+      const nb = b.cr || b.fn || "";
+      const ka = Number(firYear(na)) * 100000 + parseInt(na, 10);
+      const kb = Number(firYear(nb)) * 100000 + parseInt(nb, 10);
+      return ka - kb;
+    });
+  }, [institutionFirs]);
 
   /* ── Disposal list sorted ── */
   const disposalSorted = useMemo(() => {
@@ -507,25 +492,45 @@ const institutionFirs = useMemo(() => {
       <div className="card">
         <div className="ctitle">📄 Monthly FIR Statement</div>
         <div className="frow" style={{ alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
+
+          {/* Month select — hide Jan–Apr when year is 2026 */}
           <div className="fg">
             <label className="lbl">Month</label>
             <select className="inp" value={selMonth}
-              onChange={e => { setSelMonth(e.target.value); setSubmitted(false); setFilterYr(null); }}>
+              onChange={e => {
+                setSelMonth(e.target.value);
+                setSubmitted(false);
+                setFilterYr(null);
+              }}>
               {Array.from({ length: 12 }, (_, i) => {
-                const v = pad2(i + 1);
-                return <option key={v} value={v}>{MON_NAMES[i + 1]}</option>;
+                const monthNum = i + 1;
+                const v = pad2(monthNum);
+                if (parseInt(selYear, 10) === MIN_YEAR && monthNum < MIN_MONTH) return null;
+                return <option key={v} value={v}>{MON_NAMES[monthNum]}</option>;
               })}
             </select>
           </div>
+
+          {/* Year select — only MIN_YEAR onwards */}
           <div className="fg">
             <label className="lbl">Year</label>
             <select className="inp" value={selYear}
-              onChange={e => { setSelYear(e.target.value); setSubmitted(false); setFilterYr(null); }}>
+              onChange={e => {
+                const newYear = e.target.value;
+                setSelYear(newYear);
+                /* If switching to 2026 and current month < May, snap to May */
+                if (parseInt(newYear, 10) === MIN_YEAR && parseInt(selMonth, 10) < MIN_MONTH) {
+                  setSelMonth(pad2(MIN_MONTH));
+                }
+                setSubmitted(false);
+                setFilterYr(null);
+              }}>
               {buildYearOptions().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
+
           <button className="btn btn-g" style={{ marginBottom: 1 }}
             onClick={() => { setSubmitted(true); setFilterYr(null); }}>
             🔍 Generate Statement
@@ -558,7 +563,10 @@ const institutionFirs = useMemo(() => {
               <div className="stat-lbl">Pending (Prev Month End)</div>
               <div className="stat-val">{prevPendingCount}</div>
               <div className="stat-sub">
-                FIRs received on or before {prevEnd}
+                FIRs (dr ≤ {prevEnd})
+                {prevMM === 5 && prevYYYY === 2026
+                  ? " + CNum dr in May 2026"
+                  : ` + CNum dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
               </div>
             </div>
             <div className="stat">
@@ -578,9 +586,7 @@ const institutionFirs = useMemo(() => {
             <div className="stat">
               <div className="stat-lbl">Total Pending (This Month End)</div>
               <div className="stat-val">{totalPending}</div>
-              <div className="stat-sub">
-                All FIRs in Pending Register (live)
-              </div>
+              <div className="stat-sub">All FIRs in Pending Register (live)</div>
             </div>
           </div>
 
@@ -591,10 +597,13 @@ const institutionFirs = useMemo(() => {
             fontSize: 11, color: "var(--txt2)", lineHeight: 1.7,
           }}>
             <strong style={{ color: "var(--txt1)" }}>📌 Calculation logic:</strong>
-            &nbsp; Prev Pending = FIRs (dr ≤ {prevEnd}) &nbsp;|&nbsp;
-            Institution = FIRs received in {MON_SHORT[mm]} {yyyy} &nbsp;|&nbsp;
-            Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy} &nbsp;|&nbsp;
-            This Month Pending = live count from FIR Pending Register
+            &nbsp; Prev Pending = FIR Pending (dr ≤ {prevEnd})
+            {prevMM === 5 && prevYYYY === 2026
+              ? ` + CNum where dr in May 2026`
+              : ` + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
+            &nbsp;|&nbsp; Institution = FIRs received in {MON_SHORT[mm]} {yyyy}
+            &nbsp;|&nbsp; Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy}
+            &nbsp;|&nbsp; This Month Pending = live count from FIR Pending Register
           </div>
 
           {/* ── Disposal Statement Table ── */}
@@ -636,21 +645,21 @@ const institutionFirs = useMemo(() => {
                     </tr>
                   </thead>
                   <tbody>
-                {institutionSorted.map((r, i) => {
-  const firNo = r.cr || r.fn || "—";
-  const yr    = r.firYr || firYear(r.fn) || "?";
-  const sta   = r.stLb || r.sta || "—";
-  return (
-    <tr key={i}>
-      <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
-      <td className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{firNo}</td>
-      <td><span className="yr-badge">{yr}</span></td>
-      <td style={{ fontSize: 11 }}>{sta}</td>
-      <td style={{ maxWidth: 200, wordBreak: "break-word", fontSize: 11 }}>{r.sec || "—"}</td>
-      <td className="mono">{r.dr || "—"}</td>
-    </tr>
-  );
-})}
+                    {institutionSorted.map((r, i) => {
+                      const firNo = r.cr || r.fn || "—";
+                      const yr    = r.firYr || firYear(r.fn) || "?";
+                      const sta   = r.stLb || r.sta || "—";
+                      return (
+                        <tr key={i}>
+                          <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
+                          <td className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{firNo}</td>
+                          <td><span className="yr-badge">{yr}</span></td>
+                          <td style={{ fontSize: 11 }}>{sta}</td>
+                          <td style={{ maxWidth: 200, wordBreak: "break-word", fontSize: 11 }}>{r.sec || "—"}</td>
+                          <td className="mono">{r.dr || "—"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
