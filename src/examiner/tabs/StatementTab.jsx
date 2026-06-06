@@ -220,15 +220,22 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     const isMay2026 = prevMM === 5 && prevYYYY === 2026;
 
     const fromCnum = allCnum.filter(r => {
-      if (isMay2026) {
-        const p = parseDateFlex(r.dr);
-        return p && p.mm === prevMM && p.yyyy === prevYYYY;
-      } else {
-        const p = parseDateFlex(r.dreg);
-        return p && p.mm === prevMM && p.yyyy === prevYYYY;
-      }
-    });
+    if (isMay2026) {
+      // date of received ≤ last day of May 2026
+      const pDr = parseDateFlex(r.dr);
+      const drOk = pDr && dateNum(pDr) <= prevEndNum;
 
+      // OR date of registration in June 2026 only
+      const pDreg = parseDateFlex(r.dreg);
+      const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
+
+      return drOk || dregOk;
+    } else {
+      // All other months: dreg within that specific prev month only
+      const p = parseDateFlex(r.dreg);
+      return p && p.mm === prevMM && p.yyyy === prevYYYY;
+    }
+  });
     /* Step 3 — Deduplicate: skip cnum entries already in pending list */
     const seen = new Set(fromPending.map(r => r.cr));
     const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
