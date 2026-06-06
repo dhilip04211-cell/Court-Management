@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { isValidFIRCell, parseFIR } from "../utils/helpers.js";
+import { isValidFIRCell } from "../utils/helpers.js";
+
+const EMPTY_ARR = [];
 
 /* ─────────────────────────────────────────────────────────────────
    CONSTANTS
@@ -53,7 +55,7 @@ function firYear(cr) {
 
 /* ── Year / Month minimum boundaries ── */
 const MIN_YEAR  = 2026;
-const MIN_MONTH = 5; // May
+const MIN_MONTH = 6; // June
 
 /* Build year options — only MIN_YEAR onwards */
 function buildYearOptions() {
@@ -129,7 +131,7 @@ function buildWordDoc(disposalAOA, pendingAOA, monthLabel, districtName, courtNa
 </style>
 </head>
 <body>
-  <h1>IN THE FILE OF THE JUDICIAL MAGISTRATE COURT NO.I, JAYANKONDAM</h1>
+  <h1>IN THE FILE OF THE ${courtName.toUpperCase()}</h1>
   <p class="sub">NAME OF THE DISTRICT: ${districtName}</p>
   <p class="sub">STATEMENT AS ON ${monthLabel}</p>
   ${tblHTML(disposalAOA, "Disposal of FIR (Yearwise-Courtwise)")}
@@ -150,12 +152,12 @@ function exportWord(disposalAOA, pendingAOA, monthLabel, districtName, courtName
 /* ─────────────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────────────── */
-export default function StatementTab({ db, setDb, tok, smap }) {
-  const SMAP = smap || [];
+export default function StatementTab({ db, smap }) {
+  const SMAP = smap || EMPTY_ARR;
   const COURT_NAME = "Judicial Magistrate No.I, Jayankondam";
   const DISTRICT   = "Ariyalur";
 
-  /* ── Default month/year — snap to May 2026 minimum ── */
+  /* ── Default month/year ── */
   const now = new Date();
   const defaultYear  = Math.max(now.getFullYear(), MIN_YEAR);
   const defaultMonth = (defaultYear === MIN_YEAR && now.getMonth() + 1 < MIN_MONTH)
@@ -181,7 +183,6 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 
   /* numeric YYYYMMDD boundaries for fast comparison */
   const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;
-  const thisEndNum = yyyy     * 10000 + mm     * 100 + thisEndDD;
 
   /* ── All FIRs flat (from FIR Pending register) ── */
   const allFirs = useMemo(() => {
@@ -201,7 +202,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 
      Formula:
        FIR Pending list  →  dr ≤ prev month last date  (always)
-       CNum list         →  prev month == May 2026 ? dr in May 2026
+       CNum list         →  prev month == May 2026 ? dreg in June 2026 only
                                                     : dreg in prev month
      Deduplicate by FIR number before combining.
   ───────────────────────────────────────────────────────────── */
@@ -215,21 +216,17 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
 
     /* Step 2 — CNum: only entries within prev month
-       May 2026 special case → use dr (date of received)
+       May 2026 special case → use dreg in June 2026 only
        All other months      → use dreg (date of registration) */
     const isMay2026 = prevMM === 5 && prevYYYY === 2026;
 
     const fromCnum = allCnum.filter(r => {
     if (isMay2026) {
-      // date of received ≤ last day of May 2026
-      const pDr = parseDateFlex(r.dr);
-      const drOk = pDr && dateNum(pDr) <= prevEndNum;
-
-      // OR date of registration in June 2026 only
+      // date of registration in June 2026 only
       const pDreg = parseDateFlex(r.dreg);
       const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
 
-      return drOk || dregOk;
+      return dregOk;
     } else {
       // All other months: dreg within that specific prev month only
       const p = parseDateFlex(r.dreg);
@@ -572,7 +569,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
               <div className="stat-sub">
                 FIRs (dr ≤ {prevEnd})
                 {prevMM === 5 && prevYYYY === 2026
-                  ? " + CNum dr in May 2026"
+                  ? " + CNum dreg in June 2026"
                   : ` + CNum dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
               </div>
             </div>
@@ -606,7 +603,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
             <strong style={{ color: "var(--txt1)" }}>📌 Calculation logic:</strong>
             &nbsp; Prev Pending = FIR Pending (dr ≤ {prevEnd})
             {prevMM === 5 && prevYYYY === 2026
-              ? ` + CNum where dr in May 2026`
+              ? ` + CNum where dreg in June 2026`
               : ` + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
             &nbsp;|&nbsp; Institution = FIRs received in {MON_SHORT[mm]} {yyyy}
             &nbsp;|&nbsp; Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy}
