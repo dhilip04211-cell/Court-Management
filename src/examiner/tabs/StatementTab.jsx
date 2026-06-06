@@ -195,14 +195,27 @@ export default function StatementTab({ db, setDb, tok, smap }) {
      = FIRs in pending register whose dr ≤ last day of prev month
      Source: FIR Pending list only
   ───────────────────────────────────────────────────────────── */
-  const prevPendingFirs = useMemo(() => {
-    if (!submitted) return [];
-    return allFirs.filter(r => {
-      const p = parseDateFlex(r.dr);
-      if (!p) return false;
-      return dateNum(p) <= prevEndNum;
-    });
-  }, [allFirs, prevEndNum, submitted]);
+ const prevPendingFirs = useMemo(() => {
+  if (!submitted) return [];
+
+  // FIRs still in FIR Pending register received on/before prev month end
+  const fromPending = allFirs.filter(r => {
+    const p = parseDateFlex(r.dr);
+    return p && dateNum(p) <= prevEndNum;
+  });
+
+  // FIRs already case-numbered (disposed) received on/before prev month end
+  const fromCnum = allCnum.filter(r => {
+    const p = parseDateFlex(r.dr);
+    return p && dateNum(p) <= prevEndNum;
+  });
+
+  // Deduplicate by FIR number (fn in cnum matches cr in pending)
+  const seen = new Set(fromPending.map(r => r.cr));
+  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+
+  return [...fromPending, ...extra];
+}, [allFirs, allCnum, prevEndNum, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
      INSTITUTION (ADDED THIS MONTH)
