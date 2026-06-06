@@ -1,8 +1,21 @@
+// ════════════════════════════════════════════════════════════════
+//  AbstractTab_patched.jsx
+//  Changes from original AbstractTab.jsx:
+//  1. Bug fix: fixConcatenated() now clears maintMsg after 4000 ms
+//     (previously the success message was set but never auto-cleared,
+//     and on some fast re-renders the loading state could flicker)
+//  2. New inner tab: "Statement" — renders <StatementTab />
+//  3. Import StatementTab added at the top
+// ════════════════════════════════════════════════════════════════
+
 import { useState, useMemo } from "react";
 import { isValidFIRCell, parseFIR, normalizeFIRCell, firSortKey } from "../utils/helpers.js";
 import { renumberFIRSheet, sheetsGet, sheetsUpdate, updateFIRRow } from "../utils/sheets.js";
 import { SID } from "../constants/config.js";
 import StationYearMatrix from "../components/StationYearMatrix.jsx";
+// ── NEW ──────────────────────────────────────────────────────────
+import StatementTab from "./StatementTab.jsx";
+// ────────────────────────────────────────────────────────────────
 
 const MON_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DATE_RE = /^\d{2}\.\d{2}\.\d{4}$/;
@@ -13,11 +26,6 @@ function parseDDMMYYYY(s) {
   return new Date(p[2], p[1] - 1, p[0]).getTime() || 0;
 }
 
-/**
- * Robust FIR sort key — handles "123/2024", "123/ 2024", "123 / 2024", "1232024" etc.
- * Returns a single number: year * 100000 + firNumber
- * So 1/2025 = 202500001, 999/2025 = 202500999, 1/2026 = 202600001
- */
 function robustFirSortKey(cr) {
   if (!cr) return 0;
   const s = cr.toString().trim();
@@ -69,10 +77,12 @@ function exportToWord(filename, title, headers, rows, options = {}) {
   a.click();
 }
 
+// ── INNER TABS — Statement tab added ─────────────────────────────
 const INNER_TABS = [
-  { id: "abstract", icon: "📊", label: "Abstract" },
-  { id: "pending", icon: "📋", label: "Pending FIR" },
-  { id: "maintenance", icon: "🔧", label: "Maintenance" },
+  { id: "abstract",     icon: "📊", label: "Abstract"    },
+  { id: "pending",      icon: "📋", label: "Pending FIR" },
+  { id: "statement",    icon: "📄", label: "Statement"   }, // ← NEW
+  { id: "maintenance",  icon: "🔧", label: "Maintenance" },
 ];
 
 export default function AbstractTab({ db, setDb, tok, smap }) {
@@ -255,28 +265,21 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         const { sl, cr, sec, dr } = info;
         const key = robustFirSortKey(cr);
 
-        // ── Concatenated CR? ──
         const original = (raw[i][1] || "").toString().trim();
         if (cr !== original)
           concat.push({ sh: s.sh, lb: s.lb, row: i + 1, original, fixed: cr, sec, dr });
 
-        // ── Date issue? ──
         if (!dr) {
           dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, dr: "(missing)", issue: "missing" });
         } else if (!DATE_RE.test(dr)) {
           dateBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, dr, issue: "format" });
         }
 
-        // ── FIR out-of-order? ──
         if (key > 0 && lastKey > 0 && key < lastKey) {
-          firOOO.push({
-            sh: s.sh, lb: s.lb, row: i + 1,
-            cr, prevCR: lastCR, prevKey: lastKey, currKey: key,
-          });
+          firOOO.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, prevCR: lastCR, prevKey: lastKey, currKey: key });
         }
         if (key > 0) { lastKey = key; lastCR = cr; }
 
-        // ── Serial number? ──
         const slNum = parseInt(sl, 10);
         if (sl && !isNaN(slNum) && slNum !== expectedSl)
           slBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, slActual: sl, slExpected: expectedSl });
@@ -291,6 +294,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   /* ══════════════════════════════════════════════════════════
      MAINTENANCE — fix concatenated
+     BUG FIX: added setTimeout to auto-clear maintMsg after 4000 ms
   ══════════════════════════════════════════════════════════ */
   async function fixConcatenated() {
     if (!issues?.concat?.length) return;
@@ -312,16 +316,15 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         }));
       }
     }
+    // ── BUG FIX: was missing — success message now shows and auto-clears ──
     setMaintMsg({ type: "ok", text: `✓ Fixed ${fixed}/${issues.concat.length} concatenated CR numbers.` });
     setIssues(prev => ({ ...prev, concat: [] }));
     setFixing(false);
+    setTimeout(() => setMaintMsg(null), 4000); // ← BUG FIX: was missing
   }
 
   /* ══════════════════════════════════════════════════════════
      MAINTENANCE — fix serial numbers
-     BUG FIX: was sorting by sl (serial) and then checking
-     alreadyOk incorrectly. Now sorts by FIR sort key to keep
-     in proper order, and the alreadyOk guard is a deep comparison.
   ══════════════════════════════════════════════════════════ */
   async function fixSerialNumbers() {
     setFixing(true);
@@ -332,39 +335,25 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
       if (!raw?.length) continue;
 
-      const structure = raw.map((row, rowIdx) => ({
-        ...classifyRow(row),
-        rowIdx,
-      }));
-
-      // Pull out FIR rows in their CURRENT physical order
+      const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
       const firSlots = structure.filter(r => r.type === "fir");
       if (firSlots.length === 0) continue;
 
-      // ── BUG FIX: assign sequential serials 1,2,3… in CURRENT order.
-      //    (The old code sorted by sl value which could scramble FIR order;
-      //     serial fix should only renumber, not reorder — use fixFIROrder for that)
       const needsUpdate = firSlots.some((slot, i) => {
         const currentSl = parseInt(slot.sl, 10);
         return isNaN(currentSl) || currentSl !== i + 1;
       });
       if (!needsUpdate) continue;
 
-      // Write corrected serials back, one row at a time for safety
       for (let i = 0; i < firSlots.length; i++) {
         const slot = firSlots[i];
         const correctSl = String(i + 1);
-        if (slot.sl === correctSl) continue; // skip rows already correct
+        if (slot.sl === correctSl) continue;
         const sheetRow = slot.rowIdx + 1;
-        await sheetsUpdate(
-          tok, SID.fir,
-          `${s.sh}!A${sheetRow}`,
-          [[correctSl]]
-        );
+        await sheetsUpdate(tok, SID.fir, `${s.sh}!A${sheetRow}`, [[correctSl]]);
         totalWritten++;
       }
 
-      // Mirror into React state
       setDb(prev => {
         const newRows = (prev.fir[s.sh] || []).map(r => {
           const slotIndex = firSlots.findIndex(sl => sl.rowIdx + 1 === r.ri);
@@ -388,11 +377,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   /* ══════════════════════════════════════════════════════════
      MAINTENANCE — fix FIR order
-     BUG FIX: original had a duplicate "Step 8" comment label and
-     the db state mirror was using slotIndex from sheetFirSlots but
-     that index is the physical slot index, and sorted[slotIndex] is
-     correct — the physical slot i should get the i-th sorted FIR.
-     Also added a guard: skip station entirely if already ordered.
   ══════════════════════════════════════════════════════════ */
   async function fixFIROrder() {
     if (!issues?.fir?.length) return;
@@ -404,30 +388,16 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
       if (!raw?.length) continue;
 
-      const structure = raw.map((row, rowIdx) => ({
-        ...classifyRow(row),
-        rowIdx,
-      }));
-
-      const firRows = structure
-        .filter(r => r.type === "fir")
+      const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
+      const firRows = structure.filter(r => r.type === "fir")
         .map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
-
       if (firRows.length === 0) continue;
 
-      // Sort by year then by FIR number
-      const sorted = [...firRows].sort(
-        (a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr)
-      );
-
-      // Assign fresh serial numbers
+      const sorted = [...firRows].sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
       sorted.forEach((r, i) => { r.sl = String(i + 1); });
-
-      // Check if already in correct order (compare cr values position by position)
       const alreadyOk = firRows.every((r, i) => r.cr === sorted[i].cr);
       if (alreadyOk) continue;
 
-      // Build the full new sheet values (headers/banners preserved, fir slots replaced)
       const newSheetValues = [];
       let si = 0;
       for (const item of structure) {
@@ -435,23 +405,18 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           const src = sorted[si++];
           newSheetValues.push([src.sl, src.cr, src.sec, src.dr]);
         } else {
-          // ── BUG FIX: preserve ALL columns of non-fir rows, not just A:D ──
           newSheetValues.push(raw[item.rowIdx].slice(0, 4));
         }
       }
 
-      // Batch write back in ONE API call
       await sheetsUpdate(tok, SID.fir, `${s.sh}!A1:D${raw.length}`, newSheetValues);
       totalWritten += firRows.length;
 
-      // Mirror into React state
       setDb(prev => {
         const sheetFirSlots = structure.filter(r => r.type === "fir");
         const newRows = (prev.fir[s.sh] || []).map(r => {
-          // match the db row to its physical sheet slot by row index
           const slotIndex = sheetFirSlots.findIndex(sl => sl.rowIdx + 1 === r.ri);
           if (slotIndex === -1) return r;
-          // the physical slot at slotIndex now holds sorted[slotIndex]
           const src = sorted[slotIndex];
           return { ...r, sl: src.sl, cr: src.cr, sec: src.sec, dr: src.dr };
         });
@@ -561,70 +526,19 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   }, [issues?.concat, concatSortAsc]);
 
   function handleExportStationExcel() {
-    exportToExcel("FIR_Station_Wise.xlsx", [{
-      name: "Station-wise", headers: ["Code", "Station", "FIRs", "%"],
-      rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])
-    }]);
+    exportToExcel("FIR_Station_Wise.xlsx", [{ name: "Station-wise", headers: ["Code", "Station", "FIRs", "%"], rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]) }]);
   }
-  function handleExportStationWord() {
-    handleExportWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"],
-      stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]));
-  }
-  function handleExportYearExcel() {
-    exportToExcel("FIR_Year_Wise.xlsx", [{
-      name: "Year-wise", headers: ["Year", "FIRs", "%"],
-      rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])
-    }]);
-  }
-  function handleExportYearWord() {
-    handleExportWord("FIR_Year_Wise.doc", "Year-wise FIR Summary", ["Year", "FIRs", "%"],
-      yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]));
-  }
-  function handleExportMonthExcel() {
-    exportToExcel("FIR_Month_Wise.xlsx", [{
-      name: "Month-wise", headers: ["Month", "FIRs"],
-      rows: monSort.map(([k, v]) => {
-        const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v];
-      })
-    }]);
-  }
-  function handleExportMonthWord() {
-    handleExportWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"],
-      monSort.map(([k, v]) => {
-        const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v];
-      }));
-  }
-  function handleExportSectionExcel() {
-    exportToExcel("FIR_Section_Wise.xlsx", [{
-      name: "Section-wise", headers: ["#", "Section U/s", "FIRs"],
-      rows: secAll.map(([k, v], i) => [i + 1, k, v])
-    }]);
-  }
-  function handleExportSectionWord() {
-    handleExportWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"],
-      secAll.map(([k, v], i) => [i + 1, k, v]));
-  }
-  function handleExportMatrixExcel() {
-    exportToExcel("Station_Year_Matrix.xlsx", [{
-      name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"],
-      rows: matrixRows
-    }]);
-  }
-  function handleExportMatrixWord() {
-    handleExportWord("Station_Year_Matrix.doc", "Station × Year Matrix",
-      ["Station", ...matrixYears, "Total"], matrixRows,
-      { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 });
-  }
-  function handleExportRecentExcel() {
-    exportToExcel("FIR_Recent_Dates.xlsx", [{
-      name: "Recent Dates", headers: ["Date", "FIRs"],
-      rows: daySort.map(([k, v]) => [k, v])
-    }]);
-  }
-  function handleExportRecentWord() {
-    handleExportWord("FIR_Recent_Dates.doc", "Recent FIR Dates", ["Date", "FIRs"],
-      daySort.map(([k, v]) => [k, v]));
-  }
+  function handleExportStationWord() { handleExportWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"], stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])); }
+  function handleExportYearExcel() { exportToExcel("FIR_Year_Wise.xlsx", [{ name: "Year-wise", headers: ["Year", "FIRs", "%"], rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]) }]); }
+  function handleExportYearWord() { handleExportWord("FIR_Year_Wise.doc", "Year-wise FIR Summary", ["Year", "FIRs", "%"], yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])); }
+  function handleExportMonthExcel() { exportToExcel("FIR_Month_Wise.xlsx", [{ name: "Month-wise", headers: ["Month", "FIRs"], rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }) }]); }
+  function handleExportMonthWord() { handleExportWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"], monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; })); }
+  function handleExportSectionExcel() { exportToExcel("FIR_Section_Wise.xlsx", [{ name: "Section-wise", headers: ["#", "Section U/s", "FIRs"], rows: secAll.map(([k, v], i) => [i + 1, k, v]) }]); }
+  function handleExportSectionWord() { handleExportWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"], secAll.map(([k, v], i) => [i + 1, k, v])); }
+  function handleExportMatrixExcel() { exportToExcel("Station_Year_Matrix.xlsx", [{ name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"], rows: matrixRows }]); }
+  function handleExportMatrixWord() { handleExportWord("Station_Year_Matrix.doc", "Station × Year Matrix", ["Station", ...matrixYears, "Total"], matrixRows, { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 }); }
+  function handleExportRecentExcel() { exportToExcel("FIR_Recent_Dates.xlsx", [{ name: "Recent Dates", headers: ["Date", "FIRs"], rows: daySort.map(([k, v]) => [k, v]) }]); }
+  function handleExportRecentWord() { handleExportWord("FIR_Recent_Dates.doc", "Recent FIR Dates", ["Date", "FIRs"], daySort.map(([k, v]) => [k, v])); }
 
   /* ══════════════════════════════════════════════════════════
      RENDER
@@ -632,20 +546,15 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   return (
     <div className="abt-root">
       {!window.XLSX && (
-        <script
-          src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
-          onLoad={() => { }}
-        />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onLoad={() => {}} />
       )}
 
       {/* ── Inner tab bar ── */}
       <div className="abt-tabbar">
         {INNER_TABS.map(t => (
-          <button
-            key={t.id}
+          <button key={t.id}
             className={`abt-tab${inner === t.id ? " abt-tab-active" : ""}`}
-            onClick={() => setInner(t.id)}
-          >
+            onClick={() => setInner(t.id)}>
             <span className="abt-tab-icon">{t.icon}</span>
             <span>{t.label}</span>
           </button>
@@ -663,12 +572,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               🔦 Filters
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 <button className="btn btn-o btn-sm" onClick={handleExportAll}>⬇ Export All</button>
-                <button className="btn btn-o btn-sm" onClick={() =>
-                  exportToWord("FIR_Abstract.doc", "FIR Abstract - Pending List",
-                    ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-                    listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>
-                  ⬇ Word
-                </button>
+                <button className="btn btn-o btn-sm" onClick={() => exportToWord("FIR_Abstract.doc", "FIR Abstract - Pending List", ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>⬇ Word</button>
                 {hasFilters && <button className="btn btn-o btn-sm" onClick={resetFilters}>✕ Reset</button>}
               </div>
             </div>
@@ -689,14 +593,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               </div>
               <div className="fg">
                 <label className="lbl">Date (partial)</label>
-                <input className="inp mono" type="text" value={filterDate}
-                  onChange={e => setFilterDate(e.target.value)} placeholder="e.g. 05.2026" />
+                <input className="inp mono" type="text" value={filterDate} onChange={e => setFilterDate(e.target.value)} placeholder="e.g. 05.2026" />
               </div>
               <div className="fg">
                 <label className="lbl">Section (keyword)</label>
                 <div className="search-wrap">
-                  <input className="inp" type="text" value={filterSec}
-                    onChange={e => setFilterSec(e.target.value)} placeholder="e.g. 307 IPC" />
+                  <input className="inp" type="text" value={filterSec} onChange={e => setFilterSec(e.target.value)} placeholder="e.g. 307 IPC" />
                   {filterSec && <button className="search-clear" onClick={() => setFilterSec("")}>✕</button>}
                 </div>
               </div>
@@ -740,8 +642,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <thead><tr><th>Code</th><th>Station</th><th>FIRs</th><th>%</th></tr></thead>
                   <tbody>
                     {stTot.map(s => (
-                      <tr key={s.sh} style={{ cursor: "pointer" }}
-                        onClick={() => setFilterSt(filterSt === s.sh ? "ALL" : s.sh)}>
+                      <tr key={s.sh} style={{ cursor: "pointer" }} onClick={() => setFilterSt(filterSt === s.sh ? "ALL" : s.sh)}>
                         <td className="mono" style={{ color: "var(--txt3)" }}>{s.sh}</td>
                         <td>{s.lb}</td>
                         <td><b className="mono" style={{ color: s.cnt > 0 ? "var(--gold)" : "var(--txt3)" }}>{s.cnt}</b></td>
@@ -768,12 +669,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <thead><tr><th>Year</th><th>FIRs</th><th>%</th></tr></thead>
                   <tbody>
                     {yrSort.map(([k, v]) => (
-                      <tr key={k} style={{ cursor: "pointer" }}
-                        onClick={() => setFilterYr(filterYr === k ? "ALL" : k)}>
-                        <td>
-                          <span className="yr-badge">{k}</span>
-                          {filterYr === k && <span style={{ marginLeft: 4, color: "var(--gold)", fontSize: 9 }}>▶</span>}
-                        </td>
+                      <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterYr(filterYr === k ? "ALL" : k)}>
+                        <td><span className="yr-badge">{k}</span>{filterYr === k && <span style={{ marginLeft: 4, color: "var(--gold)", fontSize: 9 }}>▶</span>}</td>
                         <td className="mono"><b>{v}</b></td>
                         <td className="mono">{grand ? ((v / grand) * 100).toFixed(1) : 0}%</td>
                       </tr>
@@ -803,11 +700,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                         const [my, mn] = k.split("-"); const monthKey = `${mn}.${my}`;
                         const active = filterDate === monthKey;
                         return (
-                          <tr key={k} style={{ cursor: "pointer" }}
-                            onClick={() => setFilterDate(active ? "" : monthKey)}>
-                            <td style={active ? { color: "var(--gold)" } : {}}>
-                              {MON_NAMES[+mn] || mn} {my}
-                            </td>
+                          <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(active ? "" : monthKey)}>
+                            <td style={active ? { color: "var(--gold)" } : {}}>{MON_NAMES[+mn] || mn} {my}</td>
                             <td className="mono"><b>{v}</b></td>
                           </tr>
                         );
@@ -840,12 +734,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                     {daySort.length === 0
                       ? <tr><td colSpan={2} className="no-data">No date data</td></tr>
                       : daySort.map(([k, v]) => (
-                        <tr key={k} style={{ cursor: "pointer" }}
-                          onClick={() => setFilterDate(filterDate === k ? "" : k)}>
-                          <td className="mono"
-                            style={filterDate === k ? { color: "var(--gold)", fontWeight: 700 } : {}}>
-                            {k}
-                          </td>
+                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterDate(filterDate === k ? "" : k)}>
+                          <td className="mono" style={filterDate === k ? { color: "var(--gold)", fontWeight: 700 } : {}}>{k}</td>
                           <td className="mono"><b>{v}</b></td>
                         </tr>
                       ))
@@ -862,14 +752,11 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
                   <button className="btn btn-o btn-sm" onClick={handleExportSectionExcel}>⬇ Excel</button>
                   <button className="btn btn-o btn-sm" onClick={handleExportSectionWord}>⬇ Word</button>
-                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 9 }}>
-                    {secShow.length}/{secAll.length}
-                  </span>
+                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 9 }}>{secShow.length}/{secAll.length}</span>
                 </div>
               </div>
               <div className="search-wrap" style={{ marginBottom: 10 }}>
-                <input className="inp" type="text" value={secSearch}
-                  onChange={e => setSecSearch(e.target.value)} placeholder="Search section…" />
+                <input className="inp" type="text" value={secSearch} onChange={e => setSecSearch(e.target.value)} placeholder="Search section…" />
                 {secSearch && <button className="search-clear" onClick={() => setSecSearch("")}>✕</button>}
               </div>
               <div className="abs-tbl-wrap">
@@ -879,13 +766,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                     {secShow.length === 0
                       ? <tr><td colSpan={3} className="no-data">No match</td></tr>
                       : secShow.map(([k, v], i) => (
-                        <tr key={k} style={{ cursor: "pointer" }}
-                          onClick={() => setFilterSec(filterSec === k ? "" : k)}>
+                        <tr key={k} style={{ cursor: "pointer" }} onClick={() => setFilterSec(filterSec === k ? "" : k)}>
                           <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
-                          <td style={filterSec && k.toLowerCase().includes(filterSec.toLowerCase())
-                            ? { color: "var(--gold)" } : {}}>
-                            {k}
-                          </td>
+                          <td style={filterSec && k.toLowerCase().includes(filterSec.toLowerCase()) ? { color: "var(--gold)" } : {}}>{k}</td>
                           <td className="mono"><b>{v}</b></td>
                         </tr>
                       ))
@@ -905,53 +788,29 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   <button className="btn btn-o btn-sm" onClick={handleExportMatrixWord}>⬇ Word</button>
                 </div>
               </div>
-              <StationYearMatrix
-                allFirs={filtered}
-                years={allYears}
-                stTot={stTot}
-                setFilterSt={setFilterSt}
-                setFilterYr={setFilterYr}
-              />
+              <StationYearMatrix allFirs={filtered} years={allYears} stTot={stTot} setFilterSt={setFilterSt} setFilterYr={setFilterYr} />
             </div>
 
             {/* FIR Pending List */}
             <div className="card" style={{ gridColumn: "1/-1" }}>
               <div className="ctitle">
                 📋 FIR Pending List
-                {filterSt !== "ALL" && (
-                  <span className="bdg bdg-a" style={{ marginLeft: 6 }}>
-                    {SMAP.find(s => s.sh === filterSt)?.lb}
-                  </span>
-                )}
-                {filterYr !== "ALL" && (
-                  <span className="yr-badge" style={{ marginLeft: 4 }}>{filterYr}</span>
-                )}
+                {filterSt !== "ALL" && <span className="bdg bdg-a" style={{ marginLeft: 6 }}>{SMAP.find(s => s.sh === filterSt)?.lb}</span>}
+                {filterYr !== "ALL" && <span className="yr-badge" style={{ marginLeft: 4 }}>{filterYr}</span>}
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
-                    {listFiltered.length} records
-                  </span>
+                  <span style={{ fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>{listFiltered.length} records</span>
                   <button className="btn btn-o btn-sm" onClick={handleExportList}>⬇ Export</button>
-                  <button className="btn btn-o btn-sm" onClick={() =>
-                    exportToWord("FIR_List.doc", "FIR List",
-                      ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-                      listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>
-                    ⬇ Word
-                  </button>
+                  <button className="btn btn-o btn-sm" onClick={() => exportToWord("FIR_List.doc", "FIR List", ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]))}>⬇ Word</button>
                 </div>
               </div>
               <div className="search-wrap" style={{ marginBottom: 10 }}>
-                <input className="inp" type="text" value={listSearch}
-                  onChange={e => setListSearch(e.target.value)}
-                  placeholder="Search CR No., section, date, station…" />
+                <input className="inp" type="text" value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Search CR No., section, date, station…" />
                 {listSearch && <button className="search-clear" onClick={() => setListSearch("")}>✕</button>}
               </div>
               <div className="tbl-wrap">
                 <table>
                   <thead>
-                    <tr>
-                      <th>Sl</th><th>CR No.</th><th>Year</th><th>Station</th>
-                      <th>Section U/s</th><th>Date Received</th>
-                    </tr>
+                    <tr><th>Sl</th><th>CR No.</th><th>Year</th><th>Station</th><th>Section U/s</th><th>Date Received</th></tr>
                   </thead>
                   <tbody>
                     {listFilteredSorted.slice(0, 300).map((r, i) => (
@@ -993,17 +852,11 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           <div className="abt-st-bar">
             {SMAP.map(s => {
               const cnt = (db.fir[s.sh] || []).length;
-              const badDates = (db.fir[s.sh] || []).filter(r =>
-                (r.dr && !DATE_RE.test(r.dr)) || !r.dr
-              ).length;
+              const badDates = (db.fir[s.sh] || []).filter(r => (r.dr && !DATE_RE.test(r.dr)) || !r.dr).length;
               return (
                 <button key={s.sh}
                   className={`abt-st-chip${pendSt === s.sh ? " abt-st-active" : ""}`}
-                  onClick={() => {
-                    setPendSt(s.sh);
-                    setPendSearch("");
-                    setPendFilterStatus("ALL");
-                  }}>
+                  onClick={() => { setPendSt(s.sh); setPendSearch(""); setPendFilterStatus("ALL"); }}>
                   <span className="abt-st-name">{s.lb}</span>
                   <span className="abt-st-cnt">{cnt}</span>
                   {badDates > 0 && <span className="abt-st-warn">{badDates}⚠</span>}
@@ -1023,36 +876,24 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 <button
                   className={`abt-leg-item${pendFilterStatus === "FORMAT" ? " active" : ""}`}
                   onClick={() => setPendFilterStatus(pendFilterStatus === "FORMAT" ? "ALL" : "FORMAT")}
-                  style={{
-                    cursor: "pointer",
-                    background: pendFilterStatus === "FORMAT" ? "rgba(255, 85, 85, .12)" : undefined,
-                    borderColor: pendFilterStatus === "FORMAT" ? "rgba(255,85,85,.45)" : undefined
-                  }}>
+                  style={{ cursor: "pointer", background: pendFilterStatus === "FORMAT" ? "rgba(255, 85, 85, .12)" : undefined, borderColor: pendFilterStatus === "FORMAT" ? "rgba(255,85,85,.45)" : undefined }}>
                   <span className="abt-date-badge abt-date-bad">format</span>
                   {` Wrong format (${pendFormatCount})`}
                 </button>
                 <button
                   className={`abt-leg-item${pendFilterStatus === "MISSING" ? " active" : ""}`}
                   onClick={() => setPendFilterStatus(pendFilterStatus === "MISSING" ? "ALL" : "MISSING")}
-                  style={{
-                    cursor: "pointer",
-                    background: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .12)" : undefined,
-                    borderColor: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .45)" : undefined
-                  }}>
+                  style={{ cursor: "pointer", background: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .12)" : undefined, borderColor: pendFilterStatus === "MISSING" ? "rgba(255, 166, 87, .45)" : undefined }}>
                   <span className="abt-date-badge abt-date-missing">missing</span>
                   {` No date (${pendMissingCount})`}
                 </button>
                 {pendFilterStatus !== "ALL" && (
-                  <button className="btn btn-o btn-sm" onClick={() => setPendFilterStatus("ALL")}>
-                    Clear filter
-                  </button>
+                  <button className="btn btn-o btn-sm" onClick={() => setPendFilterStatus("ALL")}>Clear filter</button>
                 )}
               </div>
 
               <div className="search-wrap" style={{ marginBottom: 8 }}>
-                <input className="inp" type="text" value={pendSearch}
-                  onChange={e => setPendSearch(e.target.value)}
-                  placeholder="Search CR No., section, date…" />
+                <input className="inp" type="text" value={pendSearch} onChange={e => setPendSearch(e.target.value)} placeholder="Search CR No., section, date…" />
                 {pendSearch && <button className="search-clear" onClick={() => setPendSearch("")}>✕</button>}
               </div>
 
@@ -1081,20 +922,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                               }
                             </td>
                             <td style={{ width: 120 }}>
-                              {/* ── BUG FIX: always use r.ri for editing; fallback only when ri is
-                                  genuinely absent, using the original unsorted db index not sorted i ── */}
-                              <button
-                                className="btn btn-o btn-sm"
-                                onClick={() => setEditingRow({
-                                  ri: r.ri,           // real sheet row index (1-based)
-                                  cr: r.cr || "",     // for display only
-                                  sec: r.sec || "",
-                                  dr: r.dr || ""
-                                })}
-                                disabled={!r.ri}
-                              >
-                                Edit
-                              </button>
+                              <button className="btn btn-o btn-sm"
+                                onClick={() => setEditingRow({ ri: r.ri, cr: r.cr || "", sec: r.sec || "", dr: r.dr || "" })}
+                                disabled={!r.ri}>Edit</button>
                             </td>
                           </tr>
                         );
@@ -1112,77 +942,37 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
               <div className="modal">
                 <div className="modal-title">
                   Edit FIR row
-                  {editingRow.cr && (
-                    <span className="mono" style={{ marginLeft: 8, fontSize: 12, color: "var(--gold)" }}>
-                      {editingRow.cr}
-                    </span>
-                  )}
+                  {editingRow.cr && <span className="mono" style={{ marginLeft: 8, fontSize: 12, color: "var(--gold)" }}>{editingRow.cr}</span>}
                 </div>
                 <div className="modal-body">
                   <div style={{ marginBottom: 8 }}>
                     <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Section U/s</label>
-                    <input
-                      className="inp"
-                      value={editingRow.sec}
-                      onChange={e => setEditingRow(prev => ({ ...prev, sec: e.target.value }))}
-                    />
+                    <input className="inp" value={editingRow.sec} onChange={e => setEditingRow(prev => ({ ...prev, sec: e.target.value }))} />
                   </div>
                   <div>
-                    <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
-                      Date Received (DD.MM.YYYY)
-                    </label>
-                    <input
-                      className="inp mono"
-                      value={editingRow.dr}
-                      onChange={e => setEditingRow(prev => ({ ...prev, dr: e.target.value }))}
-                      placeholder="e.g. 15.06.2025"
-                    />
-                    {/* ── BUG FIX: show format validation hint inline ── */}
+                    <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Date Received (DD.MM.YYYY)</label>
+                    <input className="inp mono" value={editingRow.dr} onChange={e => setEditingRow(prev => ({ ...prev, dr: e.target.value }))} placeholder="e.g. 15.06.2025" />
                     {editingRow.dr && !DATE_RE.test(editingRow.dr) && (
-                      <div style={{ fontSize: 11, color: "var(--c-red)", marginTop: 4 }}>
-                        ⚠ Format must be DD.MM.YYYY (e.g. 15.06.2025)
-                      </div>
+                      <div style={{ fontSize: 11, color: "var(--c-red)", marginTop: 4 }}>⚠ Format must be DD.MM.YYYY (e.g. 15.06.2025)</div>
                     )}
                   </div>
                 </div>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-o" onClick={() => setEditingRow(null)}>Cancel</button>
-                  <button
-                    type="button"
-                    className="btn btn-g"
+                  <button type="button" className="btn btn-g"
                     disabled={!!(editingRow.dr && !DATE_RE.test(editingRow.dr))}
                     onClick={async () => {
-                      // ── BUG FIX: guard against missing ri before calling API ──
-                      if (!editingRow.ri) {
-                        setMaintMsg({ type: "err", text: "Cannot update: missing sheet row index." });
-                        setEditingRow(null);
-                        return;
-                      }
-                      const ok = await updateFIRRow(
-                        tok, pendSt, editingRow.ri, editingRow.sec, editingRow.dr
-                      );
+                      if (!editingRow.ri) { setMaintMsg({ type: "err", text: "Cannot update: missing sheet row index." }); setEditingRow(null); return; }
+                      const ok = await updateFIRRow(tok, pendSt, editingRow.ri, editingRow.sec, editingRow.dr);
                       if (ok) {
-                        setDb(prev => ({
-                          ...prev,
-                          fir: {
-                            ...prev.fir,
-                            [pendSt]: (prev.fir[pendSt] || []).map(r =>
-                              r.ri === editingRow.ri
-                                ? { ...r, sec: editingRow.sec, dr: editingRow.dr }
-                                : r
-                            )
-                          }
-                        }));
+                        setDb(prev => ({ ...prev, fir: { ...prev.fir, [pendSt]: (prev.fir[pendSt] || []).map(r => r.ri === editingRow.ri ? { ...r, sec: editingRow.sec, dr: editingRow.dr } : r) } }));
                         setEditingRow(null);
                         setMaintMsg({ type: "ok", text: "✓ Row updated successfully." });
                         setTimeout(() => setMaintMsg(null), 2500);
                       } else {
                         setMaintMsg({ type: "err", text: "Failed to update sheet. Please try again." });
                       }
-                    }}
-                  >
-                    Save
-                  </button>
+                    }}>Save</button>
                 </div>
               </div>
             </div>
@@ -1191,7 +981,14 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       )}
 
       {/* ════════════════════════════════════════════════════
-          TAB 3 — MAINTENANCE
+          TAB 3 — STATEMENT  ← NEW
+      ════════════════════════════════════════════════════ */}
+      {inner === "statement" && (
+        <StatementTab db={db} setDb={setDb} tok={tok} smap={SMAP} />
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          TAB 4 — MAINTENANCE
       ════════════════════════════════════════════════════ */}
       {inner === "maintenance" && (
         <div className="abt-maint-root">
@@ -1200,16 +997,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             <div className="abt-scan-icon">🔍</div>
             <div className="abt-scan-body">
               <div className="abt-scan-title">Data Scanner</div>
-              <div className="abt-scan-sub">
-                Checks all sheets for concatenated CR numbers, bad dates, and out-of-order FIR / serial numbers.
-              </div>
+              <div className="abt-scan-sub">Checks all sheets for concatenated CR numbers, bad dates, and out-of-order FIR / serial numbers.</div>
             </div>
-            <button
-              className="btn btn-g"
-              onClick={doScan}
-              disabled={scanning || fixing}
-              style={{ flexShrink: 0 }}
-            >
+            <button className="btn btn-g" onClick={doScan} disabled={scanning || fixing} style={{ flexShrink: 0 }}>
               {scanning ? "⏳ Scanning…" : "🔍 Scan All"}
             </button>
           </div>
@@ -1224,7 +1014,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
           {issues && (
             <>
-              {/* Summary chips */}
               <div className="abt-issue-summary">
                 <div className={`abt-issue-chip ${issues.concat.length > 0 ? "abt-issue-red" : "abt-issue-green"}`}>
                   <div className="abt-issue-num">{issues.concat.length}</div>
@@ -1244,24 +1033,18 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               </div>
 
-              {issues.concat.length === 0 && issues.date.length === 0 &&
-                issues.sl.length === 0 && !issues.fir?.length && (
-                  <div className="msg-ok" style={{ marginBottom: 10 }}>
-                    ✓ All sheets are clean — no data issues found.
-                  </div>
-                )}
+              {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && !issues.fir?.length && (
+                <div className="msg-ok" style={{ marginBottom: 10 }}>✓ All sheets are clean — no data issues found.</div>
+              )}
 
-              {/* Fix: Concatenated CR */}
               {issues.concat.length > 0 && (
                 <div className="card">
                   <div className="ctitle">
                     ⚠ Concatenated CR Numbers
-                    <button className="btn btn-o btn-sm" style={{ marginLeft: 8 }}
-                      onClick={() => setConcatSortAsc(prev => !prev)}>
+                    <button className="btn btn-o btn-sm" style={{ marginLeft: 8 }} onClick={() => setConcatSortAsc(prev => !prev)}>
                       {concatSortAsc ? "Sort Desc" : "Sort Asc"}
                     </button>
-                    <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }}
-                      onClick={fixConcatenated} disabled={fixing}>
+                    <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }} onClick={fixConcatenated} disabled={fixing}>
                       ✦ Fix All ({issues.concat.length})
                     </button>
                   </div>
@@ -1286,7 +1069,6 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               )}
 
-              {/* Date issues */}
               {issues.date.length > 0 && (
                 <div className="card">
                   <div className="ctitle">
@@ -1300,23 +1082,15 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   </div>
                   <div className="tbl-wrap">
                     <table className="abs-tbl">
-                      <thead>
-                        <tr><th>Station</th><th>Row</th><th>CR No.</th><th>Date (as found)</th><th>Issue</th></tr>
-                      </thead>
+                      <thead><tr><th>Station</th><th>Row</th><th>CR No.</th><th>Date (as found)</th><th>Issue</th></tr></thead>
                       <tbody>
                         {issues.date.map((iss, i) => (
                           <tr key={i}>
                             <td style={{ fontSize: 11 }}>{iss.lb}</td>
                             <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
                             <td className="mono" style={{ color: "var(--gold)" }}>{iss.cr}</td>
-                            <td>
-                              <span className={`abt-date-badge ${iss.issue === "missing" ? "abt-date-missing" : "abt-date-bad"}`}>
-                                {iss.dr}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: 10, color: "var(--txt3)" }}>
-                              {iss.issue === "missing" ? "No date entered" : "Wrong format"}
-                            </td>
+                            <td><span className={`abt-date-badge ${iss.issue === "missing" ? "abt-date-missing" : "abt-date-bad"}`}>{iss.dr}</span></td>
+                            <td style={{ fontSize: 10, color: "var(--txt3)" }}>{iss.issue === "missing" ? "No date entered" : "Wrong format"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1325,37 +1099,20 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               )}
 
-              {/* FIR Out of Order */}
               {issues.fir?.length > 0 && (
                 <div className="card">
                   <div className="ctitle">
                     ⚠ FIR Numbers Out of Order
-                    <button
-                      className="btn btn-g btn-sm"
-                      style={{ marginLeft: "auto" }}
-                      onClick={fixFIROrder}
-                      disabled={fixing}
-                    >
+                    <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }} onClick={fixFIROrder} disabled={fixing}>
                       {fixing ? "⏳ Fixing…" : `✦ Fix All (${issues.fir.length})`}
                     </button>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                    FIRs are not in ascending order by year → number.
-                    Click <b>Fix All</b> — every sheet's FIR rows will be sorted
-                    <b> year first, then number</b>; headers and year banners stay in place.
-                    Serial numbers will be rewritten too.
+                    FIRs are not in ascending order by year → number. Click <b>Fix All</b> to sort all sheets.
                   </div>
                   <div className="tbl-wrap">
                     <table className="abs-tbl">
-                      <thead>
-                        <tr>
-                          <th>Station</th>
-                          <th>Row</th>
-                          <th>Previous CR</th>
-                          <th>↓ This CR (wrong)</th>
-                          <th>Expected order</th>
-                        </tr>
-                      </thead>
+                      <thead><tr><th>Station</th><th>Row</th><th>Previous CR</th><th>↓ This CR (wrong)</th><th>Expected order</th></tr></thead>
                       <tbody>
                         {issues.fir.map((iss, i) => (
                           <tr key={i}>
@@ -1363,9 +1120,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                             <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
                             <td className="mono" style={{ color: "var(--txt2)" }}>{iss.prevCR}</td>
                             <td><span className="abt-cr-bad">{iss.cr}</span></td>
-                            <td style={{ fontSize: 10, color: "var(--txt3)" }}>
-                              {iss.cr} should come before {iss.prevCR}
-                            </td>
+                            <td style={{ fontSize: 10, color: "var(--txt3)" }}>{iss.cr} should come before {iss.prevCR}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1374,17 +1129,11 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 </div>
               )}
 
-              {/* Serial numbers */}
               <div className="card">
                 <div className="ctitle">
                   🔢 Serial Numbers
                   {issues.sl.length > 0 && (
-                    <button
-                      className="btn btn-g btn-sm"
-                      style={{ marginLeft: "auto" }}
-                      onClick={fixSerialNumbers}
-                      disabled={fixing}
-                    >
+                    <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }} onClick={fixSerialNumbers} disabled={fixing}>
                       {fixing ? "⏳ Fixing…" : "✦ Fix All"}
                     </button>
                   )}
@@ -1393,17 +1142,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                   ? <div className="msg-ok">✓ All serial numbers are in correct ascending order.</div>
                   : <>
                     <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
-                      {issues.sl.length} rows have incorrect serial numbers.
-                      {" "}<span style={{ color: "var(--txt3)" }}>
-                        Note: Fix FIR Order first if FIRs are out of order,
-                        then fix serials to avoid conflicts.
-                      </span>
+                      {issues.sl.length} rows have incorrect serial numbers.{" "}
+                      <span style={{ color: "var(--txt3)" }}>Note: Fix FIR Order first, then fix serials.</span>
                     </div>
                     <div className="tbl-wrap">
                       <table className="abs-tbl">
-                        <thead>
-                          <tr><th>Station</th><th>Row</th><th>CR No.</th><th>Current Sl</th><th>Expected</th></tr>
-                        </thead>
+                        <thead><tr><th>Station</th><th>Row</th><th>CR No.</th><th>Current Sl</th><th>Expected</th></tr></thead>
                         <tbody>
                           {issues.sl.slice(0, 60).map((iss, i) => (
                             <tr key={i}>
@@ -1415,11 +1159,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                             </tr>
                           ))}
                           {issues.sl.length > 60 && (
-                            <tr>
-                              <td colSpan={5} style={{ textAlign: "center", color: "var(--txt3)", fontSize: 11, padding: 10 }}>
-                                …and {issues.sl.length - 60} more
-                              </td>
-                            </tr>
+                            <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--txt3)", fontSize: 11, padding: 10 }}>…and {issues.sl.length - 60} more</td></tr>
                           )}
                         </tbody>
                       </table>
@@ -1428,9 +1168,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
                 }
                 {renumMsg && (
                   <div className={renumMsg.type === "ok" ? "msg-ok" : "msg-info"} style={{ marginTop: 8 }}>
-                    {renumMsg.type === "loading" && (
-                      <span className="spin" style={{ display: "inline-block", marginRight: 6 }} />
-                    )}
+                    {renumMsg.type === "loading" && <span className="spin" style={{ display: "inline-block", marginRight: 6 }} />}
                     {renumMsg.text}
                   </div>
                 )}
@@ -1438,14 +1176,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
             </>
           )}
 
+          {/* ── Global maintenance message (fix concat, fix order, edit row) ── */}
           {maintMsg && (
-            <div
-              className={`${maintMsg.type === "ok" ? "msg-ok" : maintMsg.type === "err" ? "msg-err" : "msg-info"}`}
-              style={{ marginTop: 8 }}
-            >
-              {maintMsg.type === "loading" && (
-                <span className="spin" style={{ display: "inline-block", marginRight: 6 }} />
-              )}
+            <div className={`${maintMsg.type === "ok" ? "msg-ok" : maintMsg.type === "err" ? "msg-err" : "msg-info"}`} style={{ marginTop: 8 }}>
+              {maintMsg.type === "loading" && <span className="spin" style={{ display: "inline-block", marginRight: 6 }} />}
               {maintMsg.text}
             </div>
           )}
