@@ -24,10 +24,11 @@ function ordinal(n) {
 }
 
 /* Parse DD.MM.YYYY date string */
-function parseDMY(s) {
-  if (!s || !DATE_RE.test(s.trim())) return null;
-  const [dd, mm, yyyy] = s.trim().split(".").map(Number);
-  return { dd, mm, yyyy };
+
+function parseDateFlex(s) {
+  if (!s) return null;
+  const norm = s.trim().replace(/-/g, ".");
+  return parseDMY(norm);
 }
 
 /* Extract FIR year from a CR string like "123/2024" */
@@ -294,13 +295,13 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   }, [institutionFirs]);
 
   /* ── Disposal list sorted ── */
-  const disposalSorted = useMemo(() => {
-    return [...disposalCases].sort((a, b) => {
-      const ka = Number(firYear(a.fn)) * 100000 + parseInt(a.fn, 10);
-      const kb = Number(firYear(b.fn)) * 100000 + parseInt(b.fn, 10);
-      return ka - kb;
-    });
-  }, [disposalCases]);
+const disposalCases = useMemo(() => {
+  if (!submitted) return [];
+  return allCnum.filter(r => {
+    const p = parseDateFlex(r.dreg);   // col H: Date of Reg (when case was numbered)
+    return p && p.mm === mm && p.yyyy === yyyy;
+  });
+}, [allCnum, mm, yyyy, submitted]);
 
   /* ── Pending list (filterable by year) ── */
   const pendingFiltered = useMemo(() => {
