@@ -233,7 +233,8 @@ const prevPendingFirs = useMemo(() => {
     return !disposedFnSet.has(firNo);
   });
 
-}, [allFirs, allCnum, prevEndNum, submitted]); ─────────────────────────────────────────────────────────────
+}, [allFirs, allCnum, prevEndNum, submitted]);
+/* ─────────────────────────────────────────────────────────────
      INSTITUTION (ADDED THIS MONTH)
      = FIRs in pending register whose dr is within selected MM/YYYY
      Source: FIR Pending list only
