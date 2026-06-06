@@ -194,40 +194,46 @@ export default function StatementTab({ db, setDb, tok, smap }) {
      PENDING (PREV MONTH END)
      = FIRs in pending register whose dr ≤ last day of prev month
      Source: FIR Pending list only
-  ───────────────────────────────────────────────────────────── */
- const prevPendingFirs = useMemo(() => {
+  ───────────────────────────────────────────────────────────
+*/
+const prevPendingFirs = useMemo(() => {
   if (!submitted) return [];
 
-  // Step 1: FIR Pending list — received on/before prev month end
+  // All FIRs received on/before prev month end — from BOTH lists
   const fromPending = allFirs.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && dateNum(p) <= prevEndNum;
   });
 
-  // Step 2: CNum list — received on/before prev month end
   const fromCnum = allCnum.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && dateNum(p) <= prevEndNum;
   });
 
-  // Step 3: Subtract CNum (disposed) from total
-  // (fromPending + fromCnum) - fromCnum = fromPending
-  // But implementing explicitly as you specified:
-  const cnumFnSet = new Set(fromCnum.map(r => r.fn).filter(Boolean));
+  // Union by FIR number (cr == fn)
+  const seen = new Set(fromPending.map(r => r.cr));
+  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+  const allReceived = [...fromPending, ...extra];
 
-  const combined = [
-    ...fromPending,
-    ...fromCnum.filter(r => r.fn && !fromPending.some(p => p.cr === r.fn)),
-  ];
+  // SUBTRACT: FIRs that are already disposed (exist in cnum)
+  // where their received date is ≤ prev month end
+  const disposedFnSet = new Set(
+    allCnum
+      .filter(r => {
+        const p = parseDateFlex(r.dr);
+        return p && dateNum(p) <= prevEndNum;
+      })
+      .map(r => r.fn)
+      .filter(Boolean)
+  );
 
-  return combined.filter(r => {
+  // Pending = those in allReceived that are NOT yet disposed
+  return allReceived.filter(r => {
     const firNo = r.cr || r.fn;
-    return !cnumFnSet.has(firNo);
+    return !disposedFnSet.has(firNo);
   });
 
-}, [allFirs, allCnum, prevEndNum, submitted]);
-
-  /* ─────────────────────────────────────────────────────────────
+}, [allFirs, allCnum, prevEndNum, submitted]); ─────────────────────────────────────────────────────────────
      INSTITUTION (ADDED THIS MONTH)
      = FIRs in pending register whose dr is within selected MM/YYYY
      Source: FIR Pending list only
