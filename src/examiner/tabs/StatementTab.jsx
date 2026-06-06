@@ -23,18 +23,24 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-/* FIX 1: parseDMY restored (was deleted in broken version) */
+/* Parse DD.MM.YYYY */
 function parseDMY(s) {
   if (!s || !DATE_RE.test(s.trim())) return null;
   const [dd, mm, yyyy] = s.trim().split(".").map(Number);
   return { dd, mm, yyyy };
 }
 
-/* Parse DD.MM.YYYY or DD-MM-YYYY date string */
+/* Parse DD.MM.YYYY or DD-MM-YYYY */
 function parseDateFlex(s) {
   if (!s) return null;
   const norm = s.trim().replace(/-/g, ".");
   return parseDMY(norm);
+}
+
+/* Convert parsed date to numeric YYYYMMDD for comparison */
+function dateNum(p) {
+  if (!p) return 0;
+  return p.yyyy * 10000 + p.mm * 100 + p.dd;
 }
 
 /* Extract FIR year from a CR string like "123/2024" */
@@ -67,7 +73,6 @@ function exportExcel(filename, sheets) {
     }
     XLSX.writeFile(wb, filename);
   } catch {
-    // fallback CSV
     const { aoa } = sheets[0];
     const csv = aoa
       .map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
@@ -80,7 +85,7 @@ function exportExcel(filename, sheets) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   WORD EXPORT  — Times New Roman, bordered table, A4 landscape
+   WORD EXPORT — Times New Roman, bordered table, A4 landscape
 ───────────────────────────────────────────────────────────────── */
 function buildWordDoc(disposalAOA, pendingAOA, monthLabel, districtName, courtName) {
   function tblHTML(aoa, caption) {
@@ -88,7 +93,9 @@ function buildWordDoc(disposalAOA, pendingAOA, monthLabel, districtName, courtNa
     const [hdr, ...body] = aoa;
     const ths = hdr.map(h => `<th>${String(h ?? "").replace(/\n/g, "<br>")}</th>`).join("");
     const trs = body
-      .map(r => `<tr>${r.map((c, ci) => `<td style="${ci === 0 ? "text-align:left;font-weight:600" : ""}">${String(c ?? "")}</td>`).join("")}</tr>`)
+      .map(r => `<tr>${r.map((c, ci) =>
+        `<td style="${ci === 0 ? "text-align:left;font-weight:600" : ""}">${String(c ?? "")}</td>`
+      ).join("")}</tr>`)
       .join("");
     return `
       <p class="cap">${caption}</p>
@@ -154,13 +161,23 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   const mm   = parseInt(selMonth, 10);
   const yyyy = parseInt(selYear,  10);
 
-  /* prev month */
-  const prevMM   = mm === 1 ? 12 : mm - 1;
-  const prevYYYY = mm === 1 ? yyyy - 1 : yyyy;
-  const prevEnd  = fmtDMY(lastDay(prevYYYY, prevMM), prevMM, prevYYYY);
-  const thisEnd  = fmtDMY(lastDay(yyyy, mm), mm, yyyy);
+  /* ── Date boundary numerics ──
+     prevEnd  = last date of previous month  e.g. 30.04.2026
+     thisEnd  = last date of selected month  e.g. 31.05.2026
+  */
+  const prevMM    = mm === 1 ? 12 : mm - 1;
+  const prevYYYY  = mm === 1 ? yyyy - 1 : yyyy;
+  const prevEndDD = lastDay(prevYYYY, prevMM);
+  const thisEndDD = lastDay(yyyy, mm);
 
-  /* ── All FIRs flat (pending register) ── */
+  const prevEnd    = fmtDMY(prevEndDD, prevMM, prevYYYY);
+  const thisEnd    = fmtDMY(thisEndDD, mm, yyyy);
+
+  /* numeric YYYYMMDD boundaries for fast comparison */
+  const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;  // ≤ this → prev pending
+  const thisEndNum = yyyy     * 10000 + mm     * 100 + thisEndDD;  // ≤ this → current pending
+
+  /* ── All FIRs flat (from FIR Pending register) ── */
   const allFirs = useMemo(() => {
     const out = [];
     for (const s of SMAP)
@@ -173,8 +190,25 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   /* ── All case-numbered records ── */
   const allCnum = useMemo(() => db.cnum || [], [db.cnum]);
 
-  /* ── INSTITUTION = FIRs in pending register whose dr is in selected MM/YYYY ──
-     FIX 4: use parseDateFlex instead of bare parseDMY (parseDMY was deleted) */
+  /* ─────────────────────────────────────────────────────────────
+     PENDING (PREV MONTH END)
+     = FIRs in pending register whose dr ≤ last day of prev month
+     Source: FIR Pending list only
+  ───────────────────────────────────────────────────────────── */
+  const prevPendingFirs = useMemo(() => {
+    if (!submitted) return [];
+    return allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      if (!p) return false;
+      return dateNum(p) <= prevEndNum;
+    });
+  }, [allFirs, prevEndNum, submitted]);
+
+  /* ─────────────────────────────────────────────────────────────
+     INSTITUTION (ADDED THIS MONTH)
+     = FIRs in pending register whose dr is within selected MM/YYYY
+     Source: FIR Pending list only
+  ───────────────────────────────────────────────────────────── */
   const institutionFirs = useMemo(() => {
     if (!submitted) return [];
     return allFirs.filter(r => {
@@ -183,9 +217,12 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
   }, [allFirs, mm, yyyy, submitted]);
 
-  /* ── DISPOSAL = Case Numbered entries whose dreg (Date of Registration) is in selected MM/YYYY ──
-     FIX 3: was filtering on r.dr — now correctly filters on r.dreg
-     FIX 4: uses parseDateFlex to handle both DD.MM.YYYY and DD-MM-YYYY formats */
+  /* ─────────────────────────────────────────────────────────────
+     DISPOSAL (FINALIZED THIS MONTH)
+     = Case Numbered entries whose dreg (Date of Registration)
+       is within selected MM/YYYY
+     Source: Case Numbered list only
+  ───────────────────────────────────────────────────────────── */
   const disposalCases = useMemo(() => {
     if (!submitted) return [];
     return allCnum.filter(r => {
@@ -194,11 +231,15 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
   }, [allCnum, mm, yyyy, submitted]);
 
-  /* ── PENDING as on this month end = all FIRs currently in register ── */
+  /* ─────────────────────────────────────────────────────────────
+     PENDING (THIS MONTH END)
+     = ALL FIRs currently present in FIR Pending register
+     Source: FIR Pending list only (live count)
+  ───────────────────────────────────────────────────────────── */
   const totalPending = allFirs.length;
 
-  /* ── PENDING as on prev month end ── */
-  const prevPending = totalPending - institutionFirs.length;
+  /* ── Derived counts ── */
+  const prevPendingCount = prevPendingFirs.length;
 
   /* ── All unique FIR years (for yearwise columns) ── */
   const allYears = useMemo(() => {
@@ -207,14 +248,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     return [...ys].sort((a, b) => Number(b) - Number(a));
   }, [allFirs]);
 
-  /* ── Yearwise pending count ── */
+  /* ── Yearwise PENDING count (from FIR pending list — live) ── */
   const pendingByYear = useMemo(() => {
     const m = {};
     allFirs.forEach(r => { m[r.firYr] = (m[r.firYr] || 0) + 1; });
     return m;
   }, [allFirs]);
 
-  /* ── Yearwise disposal count (keyed by FIR year from fn) ── */
+  /* ── Yearwise DISPOSAL count (from cnum, keyed by FIR year from fn) ── */
   const disposalByYear = useMemo(() => {
     const m = {};
     disposalCases.forEach(r => {
@@ -224,17 +265,17 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     return m;
   }, [disposalCases]);
 
-  /* ── Build header row for both tables ── */
-  function buildHeader(type) {
-    const prevMonthEndLabel = `FIR pending\nAs on\n${prevEnd}`;
-    const thisMonthEndLabel = `NO. OF FIR's\nPENDING AS ON\n${thisEnd}`;
-    const currYrLabel       = `${yyyy}\n(AS ON\n${thisEnd})`;
+  /* ── Build header row ── */
+  function buildHeader() {
+    const prevMonthEndLabel = `FIR Pending\nAs on\n${prevEnd}`;
+    const thisMonthEndLabel = `No. of FIR's\nPending as on\n${thisEnd}`;
+    const currYrLabel       = `${yyyy}\n(As on\n${thisEnd})`;
 
     const fixed = [
       "Name of the\nCourt",
       prevMonthEndLabel,
-      "No. of FIR's\nADDED DURING\nTHIS MONTH",
-      "No. OF FIR's\nCASES FINALIZED\nDURING THIS MONTH",
+      "No. of FIR's\nAdded During\nThis Month",
+      "No. of FIR's\nCases Finalized\nDuring This Month",
       thisMonthEndLabel,
       currYrLabel,
     ];
@@ -243,14 +284,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     return [...fixed, ...restYears];
   }
 
-  /* ── Build data rows ── */
+  /* ── Build disposal data row ── */
   function buildDisposalRow() {
     const currYrDisposal = disposalByYear[String(yyyy)] || "-";
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
     const restVals  = restYears.map(y => disposalByYear[y] || "-");
     return [
       COURT_NAME,
-      prevPending,
+      prevPendingCount,
       institutionFirs.length,
       disposalCases.length,
       totalPending,
@@ -259,13 +300,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     ];
   }
 
+  /* ── Build pending data row ── */
   function buildPendingRow() {
     const currYrPending = pendingByYear[String(yyyy)] || "-";
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
     const restVals  = restYears.map(y => pendingByYear[y] || "-");
     return [
       COURT_NAME,
-      prevPending,
+      prevPendingCount,
       institutionFirs.length,
       disposalCases.length,
       totalPending,
@@ -276,18 +318,20 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 
   const disposalAOA = useMemo(() => {
     if (!submitted) return [];
-    return [buildHeader("disposal"), buildDisposalRow()];
+    return [buildHeader(), buildDisposalRow()];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, allYears, disposalByYear, institutionFirs, disposalCases, totalPending, prevPending, yyyy, thisEnd, prevEnd, COURT_NAME]);
+  }, [submitted, allYears, disposalByYear, institutionFirs, disposalCases,
+      totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
 
   const pendingAOA = useMemo(() => {
     if (!submitted) return [];
-    return [buildHeader("pending"), buildPendingRow()];
+    return [buildHeader(), buildPendingRow()];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, allYears, pendingByYear, institutionFirs, disposalCases, totalPending, prevPending, yyyy, thisEnd, prevEnd, COURT_NAME]);
+  }, [submitted, allYears, pendingByYear, institutionFirs, disposalCases,
+      totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
 
   /* ── Month label strings ── */
-  const monthLabel     = `${ordinal(lastDay(yyyy, mm))}.${pad2(mm)}.${yyyy}`;
+  const monthLabel     = `${ordinal(thisEndDD)}.${pad2(mm)}.${yyyy}`;
   const monthLabelFull = `${MON_NAMES[mm]} ${yyyy}`;
   const fileLabel      = `${pad2(mm)}_${yyyy}`;
 
@@ -300,8 +344,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
   }, [institutionFirs]);
 
-  /* ── Disposal list sorted ──
-     FIX 2: was incorrectly named disposalCases (duplicate); now correctly named disposalSorted */
+  /* ── Disposal list sorted ── */
   const disposalSorted = useMemo(() => {
     return [...disposalCases].sort((a, b) => {
       const ka = Number(firYear(a.fn)) * 100000 + parseInt(a.fn, 10);
@@ -310,7 +353,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
   }, [disposalCases]);
 
-  /* ── Pending list (filterable by year) ── */
+  /* ── Pending list (filterable by year) — live from FIR pending register ── */
   const pendingFiltered = useMemo(() => {
     const base = filterYr ? allFirs.filter(r => r.firYr === filterYr) : allFirs;
     return [...base].sort((a, b) => {
@@ -328,13 +371,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 
   function handleExportExcel() {
     exportExcel(`FIR_Statement_${fileLabel}.xlsx`, [
-      { name: "Disposal Statement",  aoa: disposalAOA },
-      { name: "Pending Statement",   aoa: pendingAOA  },
+      { name: "Disposal Statement", aoa: disposalAOA },
+      { name: "Pending Statement",  aoa: pendingAOA  },
       {
         name: "FIR Institution",
         aoa: [
           ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-          ...institutionSorted.map((r, i) => [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
+          ...institutionSorted.map((r, i) =>
+            [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
         ],
       },
       {
@@ -351,7 +395,8 @@ export default function StatementTab({ db, setDb, tok, smap }) {
         name: "Pending FIRs",
         aoa: [
           ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-          ...allFirs.map((r, i) => [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
+          ...allFirs.map((r, i) =>
+            [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
         ],
       },
     ]);
@@ -369,9 +414,11 @@ export default function StatementTab({ db, setDb, tok, smap }) {
             <thead>
               <tr>
                 {hdr.map((h, i) => (
-                  <th key={i}>{String(h ?? "").split("\n").map((line, li) =>
-                    <span key={li}>{line}{li < String(h).split("\n").length - 1 && <br />}</span>
-                  )}</th>
+                  <th key={i}>
+                    {String(h ?? "").split("\n").map((line, li, arr) =>
+                      <span key={li}>{line}{li < arr.length - 1 && <br />}</span>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -379,8 +426,10 @@ export default function StatementTab({ db, setDb, tok, smap }) {
               {rows.map((row, ri) => (
                 <tr key={ri}>
                   {row.map((c, ci) => (
-                    <td key={ci} style={{ textAlign: ci === 0 ? "left" : "center",
-                      fontWeight: ci === 0 ? 600 : 400 }}>
+                    <td key={ci} style={{
+                      textAlign: ci === 0 ? "left" : "center",
+                      fontWeight: ci === 0 ? 600 : 400,
+                    }}>
                       {String(c ?? "")}
                     </td>
                   ))}
@@ -396,6 +445,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   /* ── RENDER ── */
   return (
     <div className="stmt-root">
+
       {/* ── Form ── */}
       <div className="card">
         <div className="ctitle">📄 Monthly FIR Statement</div>
@@ -430,9 +480,13 @@ export default function StatementTab({ db, setDb, tok, smap }) {
         <>
           {/* ── Court / District Header ── */}
           <div className="stmt-hdr-block">
-            <div className="stmt-title-main">IN THE FILE OF THE JUDICIAL MAGISTRATE COURT NO.I, JAYANKONDAM</div>
+            <div className="stmt-title-main">
+              IN THE FILE OF THE JUDICIAL MAGISTRATE COURT NO.I, JAYANKONDAM
+            </div>
             <div className="stmt-title-sub">NAME OF THE DISTRICT: {DISTRICT}</div>
-            <div className="stmt-title-ason">STATEMENT AS ON {monthLabel} — {monthLabelFull}</div>
+            <div className="stmt-title-ason">
+              STATEMENT AS ON {monthLabel} — {monthLabelFull}
+            </div>
           </div>
 
           {/* ── Export buttons ── */}
@@ -445,24 +499,45 @@ export default function StatementTab({ db, setDb, tok, smap }) {
           <div className="stat-grid" style={{ marginBottom: 16 }}>
             <div className="stat">
               <div className="stat-lbl">Pending (Prev Month End)</div>
-              <div className="stat-val">{prevPending}</div>
-              <div className="stat-sub">As on {prevEnd}</div>
+              <div className="stat-val">{prevPendingCount}</div>
+              <div className="stat-sub">
+                FIRs received on or before {prevEnd}
+              </div>
             </div>
-            <div className="stat" style={{ cursor: "default" }}>
+            <div className="stat">
               <div className="stat-lbl">FIR Institution (Added)</div>
-              <div className="stat-val" style={{ color: "var(--gold)" }}>{institutionFirs.length}</div>
+              <div className="stat-val" style={{ color: "var(--gold)" }}>
+                {institutionFirs.length}
+              </div>
               <div className="stat-sub">Received in {MON_SHORT[mm]} {yyyy}</div>
             </div>
-            <div className="stat" style={{ cursor: "default" }}>
+            <div className="stat">
               <div className="stat-lbl">FIR Disposal (Finalized)</div>
-              <div className="stat-val" style={{ color: "#4caf50" }}>{disposalCases.length}</div>
+              <div className="stat-val" style={{ color: "#4caf50" }}>
+                {disposalCases.length}
+              </div>
               <div className="stat-sub">Case Numbered in {MON_SHORT[mm]} {yyyy}</div>
             </div>
-            <div className="stat" style={{ cursor: "default" }}>
+            <div className="stat">
               <div className="stat-lbl">Total Pending (This Month End)</div>
               <div className="stat-val">{totalPending}</div>
-              <div className="stat-sub">As on {thisEnd}</div>
+              <div className="stat-sub">
+                All FIRs in Pending Register (live)
+              </div>
             </div>
+          </div>
+
+          {/* ── Logic note ── */}
+          <div style={{
+            background: "var(--c2)", border: "1px solid var(--brd)",
+            borderRadius: 6, padding: "8px 14px", marginBottom: 14,
+            fontSize: 11, color: "var(--txt2)", lineHeight: 1.7,
+          }}>
+            <strong style={{ color: "var(--txt1)" }}>📌 Calculation logic:</strong>
+            &nbsp; Prev Pending = FIRs (dr ≤ {prevEnd}) &nbsp;|&nbsp;
+            Institution = FIRs received in {MON_SHORT[mm]} {yyyy} &nbsp;|&nbsp;
+            Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy} &nbsp;|&nbsp;
+            This Month Pending = live count from FIR Pending Register
           </div>
 
           {/* ── Disposal Statement Table ── */}
@@ -478,7 +553,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
               <span style={{ marginLeft: 8, fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
                 {institutionSorted.length} FIRs
               </span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <div style={{ marginLeft: "auto" }}>
                 <button className="btn btn-o btn-sm" onClick={() =>
                   exportExcel(`FIR_Institution_${fileLabel}.xlsx`, [{
                     name: "Institution",
@@ -492,16 +567,16 @@ export default function StatementTab({ db, setDb, tok, smap }) {
             </div>
             {institutionSorted.length === 0 ? (
               <div className="no-data">
-                No FIRs with "Date Received" in {monthLabelFull} found in the FIR Pending Register.
-                <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>
-                  Institution count comes from FIRs whose Date Received (Column D) matches {pad2(mm)}.{yyyy}
-                </div>
+                No FIRs with Date Received in {monthLabelFull} found in the FIR Pending Register.
               </div>
             ) : (
               <div className="tbl-wrap">
                 <table>
                   <thead>
-                    <tr><th>Sl</th><th>CR No.</th><th>Year</th><th>Station</th><th>Section U/s</th><th>Date Received</th></tr>
+                    <tr>
+                      <th>Sl</th><th>CR No.</th><th>Year</th>
+                      <th>Station</th><th>Section U/s</th><th>Date Received</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {institutionSorted.map((r, i) => (
@@ -527,7 +602,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
               <span style={{ marginLeft: 8, fontWeight: 400, color: "var(--txt3)", fontSize: 10 }}>
                 {disposalSorted.length} cases
               </span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <div style={{ marginLeft: "auto" }}>
                 <button className="btn btn-o btn-sm" onClick={() =>
                   exportExcel(`FIR_Disposal_${fileLabel}.xlsx`, [{
                     name: "Disposal",
@@ -543,16 +618,20 @@ export default function StatementTab({ db, setDb, tok, smap }) {
             </div>
             {disposalSorted.length === 0 ? (
               <div className="no-data">
-                No Case Numbered entries with "Date of Registration" in {monthLabelFull}.
+                No Case Numbered entries with Date of Registration in {monthLabelFull}.
                 <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>
-                  Disposal count = cases in Case Numbered register whose Date of Reg (Column H) matches {pad2(mm)}.{yyyy}
+                  Disposal = Case Numbered register entries where Date of Reg (col H) is in {pad2(mm)}/{yyyy}
                 </div>
               </div>
             ) : (
               <div className="tbl-wrap">
                 <table>
                   <thead>
-                    <tr><th>Sl</th><th>FIR No.</th><th>Year</th><th>Station</th><th>Case No.</th><th>Parties</th><th>Section</th><th>Date Received</th><th>Date of Reg</th></tr>
+                    <tr>
+                      <th>Sl</th><th>FIR No.</th><th>Year</th><th>Station</th>
+                      <th>Case No.</th><th>Parties</th><th>Section</th>
+                      <th>Date Received</th><th>Date of Reg</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {disposalSorted.map((r, i) => (
@@ -574,7 +653,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
             )}
           </div>
 
-          {/* ── All Pending FIRs (yearwise filterable) ── */}
+          {/* ── All Pending FIRs — live from FIR Pending Register ── */}
           <div className="card" style={{ marginTop: 16 }}>
             <div className="ctitle">
               📂 All Pending FIRs as on {thisEnd}
@@ -586,6 +665,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
                   onClick={() => setFilterYr(null)}>✕ Clear</button>
               )}
             </div>
+
             {/* Year filter chips */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
               {allYears.map(y => {
@@ -602,10 +682,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
                 );
               })}
             </div>
+
             <div className="tbl-wrap">
               <table>
                 <thead>
-                  <tr><th>Sl</th><th>CR No.</th><th>Year</th><th>Station</th><th>Section U/s</th><th>Date Received</th></tr>
+                  <tr>
+                    <th>Sl</th><th>CR No.</th><th>Year</th>
+                    <th>Station</th><th>Section U/s</th><th>Date Received</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {pendingFiltered.length === 0 ? (
@@ -621,9 +705,11 @@ export default function StatementTab({ db, setDb, tok, smap }) {
                     </tr>
                   ))}
                   {pendingFiltered.length > 500 && (
-                    <tr><td colSpan={6} style={{ textAlign: "center", padding: 10, color: "var(--txt3)", fontSize: 11 }}>
-                      Showing 500 of {pendingFiltered.length} — use year filter to narrow.
-                    </td></tr>
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", padding: 10, color: "var(--txt3)", fontSize: 11 }}>
+                        Showing 500 of {pendingFiltered.length} — use year filter to narrow.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -648,12 +734,8 @@ export default function StatementTab({ db, setDb, tok, smap }) {
           font-size: 13px; font-weight: bold; text-align: center;
           letter-spacing: .3px; margin-bottom: 4px;
         }
-        .stmt-title-sub {
-          font-size: 12px; font-weight: 600; margin-bottom: 2px;
-        }
-        .stmt-title-ason {
-          font-size: 11px; color: var(--txt2);
-        }
+        .stmt-title-sub  { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+        .stmt-title-ason { font-size: 11px; color: var(--txt2); }
 
         .stmt-section { margin-bottom: 20px; }
         .stmt-cap {
