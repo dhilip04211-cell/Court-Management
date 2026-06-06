@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { SID, SMAP as DEFAULT_SMAP, normalizeStation } from "../constants/config.js";
 import { firMatch, firSortKey } from "../utils/helpers.js";
 import {
@@ -267,6 +267,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   const [qbMsg, setQbMsg]           = useState(null);
 
   const [qbSelRow, setQbSelRow]     = useState(null);
+  const [qbSelectedRows, setQbSelectedRows] = useState([]);
   const [qbConfirm, setQbConfirm]   = useState(false);
   const [qbBusy, setQbBusy]         = useState(false);
   const [qbMoveMsg, setQbMoveMsg]   = useState(null);
@@ -277,6 +278,12 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   // ── Track FIRs added this session so UI updates immediately ──
   // (in case db hasn't re-fetched yet)
   const [sessionAddedFIRs, setSessionAddedFIRs] = useState(new Set());
+
+  useEffect(() => {
+    if (!cnumLoaded && !cnumLoading && Array.isArray(db?.cnum) && db.cnum.length > 0) {
+      setCnumLoaded(true);
+    }
+  }, [db?.cnum?.length, cnumLoaded, cnumLoading]);
 
   // ── Derived ──────────────────────────────────────────────────
   const sNum = fn ? String(parseInt(fn, 10) || fn) : "";
@@ -477,6 +484,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     setQbResults(null);
     setQbMsg(null);
     setQbSelRow(null);
+    setQbSelectedRows([]);
     setQbConfirm(false);
     setQbMoveMsg(null);
     setSessionAddedFIRs(new Set()); // reset per run
@@ -526,6 +534,13 @@ export default function FTCTab({ db, setDb, tok, smap }) {
         if (pa !== pb) return pa - pb;
         return (a.cn || "").localeCompare(b.cn || "");
       });
+
+      const existingCnum = new Set((data.cnum || []).map(r => (r.cn || "").toString().trim().toUpperCase()));
+      results = results.filter(r => {
+        const cn = (r.cn || "").toString().trim().toUpperCase();
+        return cn ? !existingCnum.has(cn) : true;
+      });
+
       setQbResults(results);
       if (results.length === 0) setQbMsg({ type: "info", text: "No cases match the selected filters." });
     } catch (e) {
@@ -536,10 +551,25 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     }
   }
 
+  function getQbRowKey(row) {
+    return `${(row.fn || "").toString().trim()}|${(row.cn || "").toString().trim()}|${(row.sta || "").toString().trim()}|${(row._type || "").toString().trim()}`;
+  }
+
   function handleQbRowClick(row) {
-    setQbSelRow(row);
     setQbConfirm(false);
     setQbMoveMsg(null);
+    const key = getQbRowKey(row);
+    const exists = qbSelectedRows.some(item => getQbRowKey(item) === key);
+    if (exists) {
+      const next = qbSelectedRows.filter(item => getQbRowKey(item) !== key);
+      setQbSelectedRows(next);
+      if (qbSelRow && getQbRowKey(qbSelRow) === key) {
+        setQbSelRow(next.length ? next[next.length - 1] : null);
+      }
+      return;
+    }
+    setQbSelRow(row);
+    setQbSelectedRows([...qbSelectedRows, row]);
   }
 
   // ── For a given result row, find the FIR in the correct station ──
@@ -621,6 +651,73 @@ export default function FTCTab({ db, setDb, tok, smap }) {
       setQbConfirm(false);
       setQbMoveMsg(null);
     }, 2000);
+  }
+
+  async function executeQbBulkMove() {
+    if (!qbSelectedRows.length) return;
+    setQbBusy(true);
+    setQbMoveMsg({ type: "loading", text: "Processing bulk transfer…" });
+    try {
+      await ensureCasenumHeaders(tok);
+      const selected = [...qbSelectedRows];
+      const moved = [];
+      const skipped = [];
+      const fresh = await loadAllData(tok, SMAP);
+      if (fresh) { setDb(fresh); setCnumLoaded(true); }
+      const data = fresh || db;
+
+      for (const row of selected) {
+        const rowKey = getQbRowKey(row);
+        const stObj = findStationForCase(row, SMAP);
+        if (!stObj) {
+          skipped.push(row);
+          continue;
+        }
+        const firInfo = (data.fir[stObj.sh] || []).find(f => firMatch(f.cr, String(parseInt((row.fn || "").split("/")[0], 10) || row.fn), (row.fn || "").split("/")[1] || ""));
+        if (!firInfo) {
+          skipped.push(row);
+          continue;
+        }
+        const caseType = (row._type || "").toLowerCase().trim();
+        const appendRow = [
+          row.fn || "", stObj.lb,
+          firInfo.sec || "", firInfo.dr || "",
+          row.cn || "", row.pt || "", row.adv || "", row.dreg || "",
+          row.nxt || row.ddec || "", caseType,
+          row.sec || "", row.nat || "", row.des || "",
+        ];
+        const saved = await sheetsAppend(tok, SID.casenum, "Sheet1!A:M", [appendRow]);
+        if (!saved) {
+          skipped.push(row);
+          continue;
+        }
+        if (firInfo.ri && firInfo.ri !== 999999) {
+          await sheetsDeleteRow(tok, SID.fir, stObj.sh, firInfo.ri);
+          data.fir[stObj.sh] = (data.fir[stObj.sh] || [])
+            .filter(f => f.ri !== firInfo.ri)
+            .map(f => f.ri > firInfo.ri ? { ...f, ri: f.ri - 1 } : f);
+        }
+        moved.push(row);
+      }
+
+      const latest = await loadAllData(tok, SMAP);
+      if (latest) { setDb(latest); setCnumLoaded(true); }
+
+      if (moved.length) {
+        const suffix = skipped.length ? ` (${skipped.length} skipped)` : "";
+        setQbMoveMsg({ type: "ok", text: `✓ ${moved.length} case${moved.length !== 1 ? "s" : ""} moved to Case Numbered.${suffix}` });
+      } else {
+        setQbMoveMsg({ type: "err", text: "No selected cases could be moved. Ensure FIRs exist in the register." });
+      }
+      setQbResults(prev => (prev || []).filter(r => !moved.some(m => getQbRowKey(m) === getQbRowKey(r))));
+      setQbSelectedRows([]);
+      setQbSelRow(null);
+    } catch (e) {
+      console.error("Bulk QB error:", e);
+      setQbMoveMsg({ type: "err", text: "Bulk move failed. Please try again." });
+    } finally {
+      setQbBusy(false);
+    }
   }
 
   // ════════════════════════════════════════════════════════════
@@ -972,7 +1069,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
             <div style={{ marginBottom: 14 }}>
               <label className="lbl" style={{ display: "block", marginBottom: 6 }}>Police Station</label>
-              <select className="inp" value={qbStation} onChange={e => { setQbStation(e.target.value); setQbResults(null); }}>
+              <select className="inp" value={qbStation} onChange={e => { setQbStation(e.target.value); setQbResults(null); setQbSelectedRows([]); setQbSelRow(null); setQbMsg(null); }}>
                 <option value="ALL">All Stations</option>
                 {SMAP.map(s => <option key={s.sh} value={s.lb}>{s.lb}</option>)}
               </select>
@@ -980,18 +1077,18 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
             <div style={{ marginBottom: 14 }}>
               <label className="lbl" style={{ display: "block", marginBottom: 6 }}>Case Type</label>
-              <PillGroup value={qbCaseType} onChange={v => { setQbCaseType(v); setQbResults(null); }} options={caseTypeOptions} />
+              <PillGroup value={qbCaseType} onChange={v => { setQbCaseType(v); setQbResults(null); setQbSelectedRows([]); setQbSelRow(null); setQbMsg(null); }} options={caseTypeOptions} />
             </div>
 
             <div style={{ marginBottom: 14 }}>
               <label className="lbl" style={{ display: "block", marginBottom: 6 }}>List Type</label>
-              <PillGroup value={qbListType} onChange={v => { setQbListType(v); setQbResults(null); }} options={listTypeOptions} />
+              <PillGroup value={qbListType} onChange={v => { setQbListType(v); setQbResults(null); setQbSelectedRows([]); setQbSelRow(null); setQbMsg(null); }} options={listTypeOptions} />
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <label className="lbl" style={{ display: "block", marginBottom: 6 }}>Date of Registration</label>
               <PillGroup value={qbDateMode}
-                onChange={v => { setQbDateMode(v); setQbDateA(""); setQbDateB(""); setQbResults(null); }}
+                onChange={v => { setQbDateMode(v); setQbDateA(""); setQbDateB(""); setQbResults(null); setQbSelectedRows([]); setQbSelRow(null); setQbMsg(null); }}
                 options={dateModeOptions} />
               {(qbDateMode === "gt" || qbDateMode === "lt") && (
                 <div style={{ marginTop: 8 }}>
@@ -1048,6 +1145,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                 <table className="abs-tbl">
                   <thead>
                     <tr>
+                      <th style={{ width: 32 }}></th>
                       <th>#</th><th>Case No.</th><th>FIR No.</th>
                       <th>Station</th><th>Parties</th>
                       <th>Reg Date</th><th>Type</th><th>FIR Status</th>
@@ -1056,7 +1154,9 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                   <tbody>
                     {qbResults.map((r, idx) => {
                       const ct       = detectCaseType(r.cn);
-                      const isSel    = qbSelRow?.cn === r.cn && qbSelRow?._type === r._type;
+                      const rowKey   = getQbRowKey(r);
+                      const isSel    = qbSelRow && getQbRowKey(qbSelRow) === rowKey;
+                      const isSelected = qbSelectedRows.some(item => getQbRowKey(item) === rowKey);
                       const firFound = rowFIRExists(r);
                       const stO      = findStationForCase(r, SMAP);
 
@@ -1065,20 +1165,29 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                           onClick={() => handleQbRowClick(r)}
                           style={{
                             cursor: "pointer",
-                            background: isSel
+                            background: isSel || isSelected
                               ? "var(--gold)18"
                               : firFound
                                 ? "var(--grn)07"
                                 : "var(--red)09",
-                            outline: isSel ? "1.5px solid var(--gold)" : undefined,
+                            outline: isSel || isSelected ? "1.5px solid var(--gold)" : undefined,
                             borderLeft: firFound
                               ? "3px solid var(--grn)"
                               : "3px solid var(--red)",
                           }}>
+                          <td style={{ width: 32, padding: 0, textAlign: "center" }}>
+                            <label style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                              <input
+                                type="checkbox"
+                                checked={qbSelectedRows.some(item => getQbRowKey(item) === getQbRowKey(r))}
+                                onChange={() => handleQbRowClick(r)}
+                                style={{ width: 16, height: 16, accentColor: "var(--gold)" }}
+                              />
+                            </label>
+                          </td>
                           <td style={{ color: "var(--txt3)", fontSize: 10 }}>{idx + 1}</td>
                           <td className="mono" style={{ fontWeight: 700 }}>
                             {ct && (
-                              <span style={{
                                 marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9,
                                 background: caseTypeColor(ct) + "22", color: caseTypeColor(ct),
                                 border: `1px solid ${caseTypeColor(ct)}55`, fontWeight: 800,
@@ -1125,6 +1234,31 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {qbSelectedRows.length > 0 && (
+            <div className="card" style={{ margin: "12px 14px 0", border: "1.5px solid var(--gold)55" }}>
+              <div className="ctitle" style={{ color: "var(--gold)" }}>
+                📦 Bulk Selection
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                <div style={{ fontSize: 13, color: "var(--txt2)", minWidth: 180 }}>
+                  {qbSelectedRows.length} case{qbSelectedRows.length !== 1 ? "s" : ""} selected.
+                </div>
+                <button className="vt-btn vt-btn-ghost" style={{ flex: "0 0 auto" }}
+                  onClick={() => { setQbSelectedRows([]); setQbSelRow(null); setQbConfirm(false); setQbMoveMsg(null); }}>
+                  Clear selection
+                </button>
+                <button className="ftc-execute-btn" style={{ flex: "1 1 220px" }}
+                  onClick={executeQbBulkMove}
+                  disabled={qbBusy || qbSelectedRows.length === 0}>
+                  {qbBusy ? "⏳ Processing…" : "✅ Bulk Move Selected Cases"}
+                </button>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: "var(--txt3)" }}>
+                Cases that already exist in the Case Numbered register are excluded from this query.
               </div>
             </div>
           )}

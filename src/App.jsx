@@ -25,13 +25,18 @@ const sections = [
 const SKIP_FILES = ["App.jsx","main.jsx","AuthContext.jsx","LoginPage.jsx","ProtectedRoute.jsx"];
 
 /* ─── THEME CONTEXT ─── */
-const ThemeContext = createContext({ theme: "night", toggleTheme: () => {} });
+const ThemeContext = createContext({ theme: "dark", toggleTheme: () => {} });
 export const useTheme = () => useContext(ThemeContext);
 
 function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem("court_theme") || "night");
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("court_theme");
+    if (saved === "night") return "dark";
+    if (saved === "day") return "light";
+    return saved || "dark";
+  });
   const toggleTheme = () =>
-    setTheme(t => { const n = t === "night" ? "day" : "night"; localStorage.setItem("court_theme", n); return n; });
+    setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("court_theme", n); return n; });
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 }
 
@@ -57,7 +62,7 @@ function generateAutoRoutes() {
 /* ─── HOME ─── */
 function Home() {
   const { theme } = useTheme();
-  const d = theme === "night";
+  const d = theme === "dark";
   return (
     <>
       <div className="hero">
@@ -79,7 +84,7 @@ function Home() {
 /* ─── THEME TOGGLE BUTTON ─── */
 function ThemeToggle({ mobile = false }) {
   const { theme, toggleTheme } = useTheme();
-  const d = theme === "night";
+  const d = theme === "dark";
   return (
     <button
       className={mobile ? "theme-toggle-mobile" : "theme-toggle"}
@@ -97,7 +102,7 @@ function Navbar({ mobileMenu, setMobileMenu }) {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const d = theme === "night";
+  const d = theme === "dark";
 
   const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 
@@ -217,7 +222,7 @@ function GlobalStyles() {
       }
 
       /* Day overrides */
-      [data-theme="day"] {
+      [data-theme="light"] {
         --bg:        #f0f2f5;
         --bg2:       #ffffff;
         --nav-bg:    rgba(255,255,255,0.97);
