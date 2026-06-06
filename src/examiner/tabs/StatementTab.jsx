@@ -52,12 +52,29 @@ function firYear(cr) {
 }
 
 /* Build year options 1999 → current+1 */
+// Replace the month/year selects with this logic
+const MIN_YEAR  = 2026;
+const MIN_MONTH = 5; // May
+
+// Year options — only 2026 onwards
 function buildYearOptions() {
   const cur = new Date().getFullYear();
   const out = [];
-  for (let y = cur + 1; y >= 1999; y--) out.push(y);
+  for (let y = cur + 1; y >= MIN_YEAR; y--) out.push(y);
   return out;
 }
+
+// In the month select — filter months before May if year is 2026
+<select className="inp" value={selMonth}
+  onChange={e => { setSelMonth(e.target.value); setSubmitted(false); setFilterYr(null); }}>
+  {Array.from({ length: 12 }, (_, i) => {
+    const v = pad2(i + 1);
+    const monthNum = i + 1;
+    // Hide months before May if selected year is 2026
+    if (parseInt(selYear) === MIN_YEAR && monthNum < MIN_MONTH) return null;
+    return <option key={v} value={v}>{MON_NAMES[i + 1]}</option>;
+  })}
+</select>
 
 /* ─────────────────────────────────────────────────────────────────
    EXCEL EXPORT
@@ -199,41 +216,35 @@ export default function StatementTab({ db, setDb, tok, smap }) {
 const prevPendingFirs = useMemo(() => {
   if (!submitted) return [];
 
-  // All FIRs received on/before prev month end — from BOTH lists
+  // Step 1: FIR Pending — dr ≤ prev month end
   const fromPending = allFirs.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && dateNum(p) <= prevEndNum;
   });
 
+  // Step 2: CNum — only entries within prev month
+  // May 2026 special case: use dr instead of dreg
+  const isMay2026 = prevMM === 5 && prevYYYY === 2026;
+
   const fromCnum = allCnum.filter(r => {
-    const p = parseDateFlex(r.dr);
-    return p && dateNum(p) <= prevEndNum;
+    if (isMay2026) {
+      // Use date of received (dr)
+      const p = parseDateFlex(r.dr);
+      return p && p.mm === prevMM && p.yyyy === prevYYYY;
+    } else {
+      // Use date of registration (dreg)
+      const p = parseDateFlex(r.dreg);
+      return p && p.mm === prevMM && p.yyyy === prevYYYY;
+    }
   });
 
-  // Union by FIR number (cr == fn)
+  // Deduplicate — avoid double counting if same FIR exists in both
   const seen = new Set(fromPending.map(r => r.cr));
   const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
-  const allReceived = [...fromPending, ...extra];
 
-  // SUBTRACT: FIRs that are already disposed (exist in cnum)
-  // where their received date is ≤ prev month end
-  const disposedFnSet = new Set(
-    allCnum
-      .filter(r => {
-        const p = parseDateFlex(r.dr);
-        return p && dateNum(p) <= prevEndNum;
-      })
-      .map(r => r.fn)
-      .filter(Boolean)
-  );
+  return [...fromPending, ...extra];
 
-  // Pending = those in allReceived that are NOT yet disposed
-  return allReceived.filter(r => {
-    const firNo = r.cr || r.fn;
-    return !disposedFnSet.has(firNo);
-  });
-
-}, [allFirs, allCnum, prevEndNum, submitted]);
+}, [allFirs, allCnum, prevEndNum, prevMM, prevYYYY, submitted]);
 /* ─────────────────────────────────────────────────────────────
      INSTITUTION (ADDED THIS MONTH)
      = FIRs in pending register whose dr is within selected MM/YYYY
