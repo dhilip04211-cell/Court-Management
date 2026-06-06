@@ -222,13 +222,27 @@ export default function StatementTab({ db, setDb, tok, smap }) {
      = FIRs in pending register whose dr is within selected MM/YYYY
      Source: FIR Pending list only
   ───────────────────────────────────────────────────────────── */
-  const institutionFirs = useMemo(() => {
-    if (!submitted) return [];
-    return allFirs.filter(r => {
-      const p = parseDateFlex(r.dr);
-      return p && p.mm === mm && p.yyyy === yyyy;
-    });
-  }, [allFirs, mm, yyyy, submitted]);
+const institutionFirs = useMemo(() => {
+  if (!submitted) return [];
+
+  // FIRs still in FIR Pending register received in selected month
+  const fromPending = allFirs.filter(r => {
+    const p = parseDateFlex(r.dr);
+    return p && p.mm === mm && p.yyyy === yyyy;
+  });
+
+  // FIRs already case-numbered received in selected month
+  const fromCnum = allCnum.filter(r => {
+    const p = parseDateFlex(r.dr);
+    return p && p.mm === mm && p.yyyy === yyyy;
+  });
+
+  // Deduplicate — cnum fn matches pending cr
+  const seen = new Set(fromPending.map(r => r.cr));
+  const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+
+  return [...fromPending, ...extra];
+}, [allFirs, allCnum, mm, yyyy, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
@@ -349,13 +363,15 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   const fileLabel      = `${pad2(mm)}_${yyyy}`;
 
   /* ── Institution list sorted ── */
-  const institutionSorted = useMemo(() => {
-    return [...institutionFirs].sort((a, b) => {
-      const ka = Number(firYear(a.cr)) * 100000 + parseInt(a.cr, 10);
-      const kb = Number(firYear(b.cr)) * 100000 + parseInt(b.cr, 10);
-      return ka - kb;
-    });
-  }, [institutionFirs]);
+ const institutionSorted = useMemo(() => {
+  return [...institutionFirs].sort((a, b) => {
+    const na = a.cr || a.fn || "";
+    const nb = b.cr || b.fn || "";
+    const ka = Number(firYear(na)) * 100000 + parseInt(na, 10);
+    const kb = Number(firYear(nb)) * 100000 + parseInt(nb, 10);
+    return ka - kb;
+  });
+}, [institutionFirs]);
 
   /* ── Disposal list sorted ── */
   const disposalSorted = useMemo(() => {
@@ -592,16 +608,21 @@ export default function StatementTab({ db, setDb, tok, smap }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {institutionSorted.map((r, i) => (
-                      <tr key={i}>
-                        <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
-                        <td className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{r.cr}</td>
-                        <td><span className="yr-badge">{r.firYr || "?"}</span></td>
-                        <td style={{ fontSize: 11 }}>{r.stLb}</td>
-                        <td style={{ maxWidth: 200, wordBreak: "break-word", fontSize: 11 }}>{r.sec || "—"}</td>
-                        <td className="mono">{r.dr}</td>
-                      </tr>
-                    ))}
+                {institutionSorted.map((r, i) => {
+  const firNo = r.cr || r.fn || "—";
+  const yr    = r.firYr || firYear(r.fn) || "?";
+  const sta   = r.stLb || r.sta || "—";
+  return (
+    <tr key={i}>
+      <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
+      <td className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{firNo}</td>
+      <td><span className="yr-badge">{yr}</span></td>
+      <td style={{ fontSize: 11 }}>{sta}</td>
+      <td style={{ maxWidth: 200, wordBreak: "break-word", fontSize: 11 }}>{r.sec || "—"}</td>
+      <td className="mono">{r.dr || "—"}</td>
+    </tr>
+  );
+})}
                   </tbody>
                 </table>
               </div>
