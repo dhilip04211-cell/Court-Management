@@ -23,8 +23,14 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-/* Parse DD.MM.YYYY date string */
+/* FIX 1: parseDMY restored (was deleted in broken version) */
+function parseDMY(s) {
+  if (!s || !DATE_RE.test(s.trim())) return null;
+  const [dd, mm, yyyy] = s.trim().split(".").map(Number);
+  return { dd, mm, yyyy };
+}
 
+/* Parse DD.MM.YYYY or DD-MM-YYYY date string */
 function parseDateFlex(s) {
   if (!s) return null;
   const norm = s.trim().replace(/-/g, ".");
@@ -36,7 +42,6 @@ function firYear(cr) {
   if (!cr) return "";
   const m = cr.toString().match(/(\d{4})/g);
   if (!m) return "";
-  // Last 4-digit group is the year
   return m[m.length - 1] || "";
 }
 
@@ -144,7 +149,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
   const [selYear,  setSelYear]  = useState(String(now.getFullYear()));
   const [submitted, setSubmitted] = useState(false);
-  const [filterYr, setFilterYr] = useState(null); // year chip filter for pending list
+  const [filterYr, setFilterYr] = useState(null);
 
   const mm   = parseInt(selMonth, 10);
   const yyyy = parseInt(selYear,  10);
@@ -165,23 +170,26 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     return out;
   }, [db.fir, SMAP]);
 
-  /* ── All case-numbered records (disposed cases) ── */
+  /* ── All case-numbered records ── */
   const allCnum = useMemo(() => db.cnum || [], [db.cnum]);
 
-  /* ── INSTITUTION = FIRs in pending register whose dr is in selected MM/YYYY ── */
+  /* ── INSTITUTION = FIRs in pending register whose dr is in selected MM/YYYY ──
+     FIX 4: use parseDateFlex instead of bare parseDMY (parseDMY was deleted) */
   const institutionFirs = useMemo(() => {
     if (!submitted) return [];
     return allFirs.filter(r => {
-      const p = parseDMY(r.dr);
+      const p = parseDateFlex(r.dr);
       return p && p.mm === mm && p.yyyy === yyyy;
     });
   }, [allFirs, mm, yyyy, submitted]);
 
-  /* ── DISPOSAL = Case Numbered entries whose dr (FIR date received) is in selected MM/YYYY ── */
+  /* ── DISPOSAL = Case Numbered entries whose dreg (Date of Registration) is in selected MM/YYYY ──
+     FIX 3: was filtering on r.dr — now correctly filters on r.dreg
+     FIX 4: uses parseDateFlex to handle both DD.MM.YYYY and DD-MM-YYYY formats */
   const disposalCases = useMemo(() => {
     if (!submitted) return [];
     return allCnum.filter(r => {
-      const p = parseDMY(r.dr);
+      const p = parseDateFlex(r.dreg);
       return p && p.mm === mm && p.yyyy === yyyy;
     });
   }, [allCnum, mm, yyyy, submitted]);
@@ -189,14 +197,14 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   /* ── PENDING as on this month end = all FIRs currently in register ── */
   const totalPending = allFirs.length;
 
-  /* ── PENDING as on prev month end = totalPending - institutionFirs (not yet added last month) ── */
+  /* ── PENDING as on prev month end ── */
   const prevPending = totalPending - institutionFirs.length;
 
   /* ── All unique FIR years (for yearwise columns) ── */
   const allYears = useMemo(() => {
     const ys = new Set();
     allFirs.forEach(r => { if (r.firYr) ys.add(r.firYr); });
-    return [...ys].sort((a, b) => Number(b) - Number(a)); // newest first
+    return [...ys].sort((a, b) => Number(b) - Number(a));
   }, [allFirs]);
 
   /* ── Yearwise pending count ── */
@@ -206,7 +214,7 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     return m;
   }, [allFirs]);
 
-  /* ── Yearwise disposal count (from cnum, keyed by FIR year = fn split) ── */
+  /* ── Yearwise disposal count (keyed by FIR year from fn) ── */
   const disposalByYear = useMemo(() => {
     const m = {};
     disposalCases.forEach(r => {
@@ -217,7 +225,6 @@ export default function StatementTab({ db, setDb, tok, smap }) {
   }, [disposalCases]);
 
   /* ── Build header row for both tables ── */
-  /* Fixed columns differ slightly: disposal has current year + all prev; pending same */
   function buildHeader(type) {
     const prevMonthEndLabel = `FIR pending\nAs on\n${prevEnd}`;
     const thisMonthEndLabel = `NO. OF FIR's\nPENDING AS ON\n${thisEnd}`;
@@ -232,12 +239,11 @@ export default function StatementTab({ db, setDb, tok, smap }) {
       currYrLabel,
     ];
 
-    // remaining years excluding current year, newest first
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
     return [...fixed, ...restYears];
   }
 
-  /* ── Build data row ── */
+  /* ── Build data rows ── */
   function buildDisposalRow() {
     const currYrDisposal = disposalByYear[String(yyyy)] || "-";
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
@@ -294,14 +300,15 @@ export default function StatementTab({ db, setDb, tok, smap }) {
     });
   }, [institutionFirs]);
 
-  /* ── Disposal list sorted ── */
-const disposalCases = useMemo(() => {
-  if (!submitted) return [];
-  return allCnum.filter(r => {
-    const p = parseDateFlex(r.dreg);   // col H: Date of Reg (when case was numbered)
-    return p && p.mm === mm && p.yyyy === yyyy;
-  });
-}, [allCnum, mm, yyyy, submitted]);
+  /* ── Disposal list sorted ──
+     FIX 2: was incorrectly named disposalCases (duplicate); now correctly named disposalSorted */
+  const disposalSorted = useMemo(() => {
+    return [...disposalCases].sort((a, b) => {
+      const ka = Number(firYear(a.fn)) * 100000 + parseInt(a.fn, 10);
+      const kb = Number(firYear(b.fn)) * 100000 + parseInt(b.fn, 10);
+      return ka - kb;
+    });
+  }, [disposalCases]);
 
   /* ── Pending list (filterable by year) ── */
   const pendingFiltered = useMemo(() => {
@@ -333,10 +340,10 @@ const disposalCases = useMemo(() => {
       {
         name: "FIR Disposal",
         aoa: [
-          ["Sl", "FIR No.", "Year", "Station", "Case No.", "Parties", "Section", "Date Received"],
+          ["Sl", "FIR No.", "Year", "Station", "Case No.", "Parties", "Section", "Date Received", "Date of Reg"],
           ...disposalSorted.map((r, i) => [
             i + 1, r.fn || "", firYear(r.fn) || "", r.sta || "",
-            r.cn || "", r.pt || "", r.sec || "", r.dr || "",
+            r.cn || "", r.pt || "", r.sec || "", r.dr || "", r.dreg || "",
           ]),
         ],
       },
@@ -525,10 +532,10 @@ const disposalCases = useMemo(() => {
                   exportExcel(`FIR_Disposal_${fileLabel}.xlsx`, [{
                     name: "Disposal",
                     aoa: [
-                      ["Sl", "FIR No.", "Year", "Station", "Case No.", "Parties", "Section", "Date Received"],
+                      ["Sl", "FIR No.", "Year", "Station", "Case No.", "Parties", "Section", "Date Received", "Date of Reg"],
                       ...disposalSorted.map((r, i) => [
                         i + 1, r.fn || "", firYear(r.fn) || "", r.sta || "",
-                        r.cn || "", r.pt || "", r.sec || "", r.dr || "",
+                        r.cn || "", r.pt || "", r.sec || "", r.dr || "", r.dreg || "",
                       ]),
                     ],
                   }])}>⬇ Excel</button>
@@ -536,16 +543,16 @@ const disposalCases = useMemo(() => {
             </div>
             {disposalSorted.length === 0 ? (
               <div className="no-data">
-                No Case Numbered entries with FIR "Date Received" in {monthLabelFull}.
+                No Case Numbered entries with "Date of Registration" in {monthLabelFull}.
                 <div style={{ fontSize: 11, color: "var(--txt3)", marginTop: 4 }}>
-                  Disposal count = cases in Case Numbered register whose FIR Date Received matches {pad2(mm)}.{yyyy}
+                  Disposal count = cases in Case Numbered register whose Date of Reg (Column H) matches {pad2(mm)}.{yyyy}
                 </div>
               </div>
             ) : (
               <div className="tbl-wrap">
                 <table>
                   <thead>
-                    <tr><th>Sl</th><th>FIR No.</th><th>Year</th><th>Station</th><th>Case No.</th><th>Parties</th><th>Section</th><th>Date Received</th></tr>
+                    <tr><th>Sl</th><th>FIR No.</th><th>Year</th><th>Station</th><th>Case No.</th><th>Parties</th><th>Section</th><th>Date Received</th><th>Date of Reg</th></tr>
                   </thead>
                   <tbody>
                     {disposalSorted.map((r, i) => (
@@ -558,6 +565,7 @@ const disposalCases = useMemo(() => {
                         <td style={{ maxWidth: 160, wordBreak: "break-word", fontSize: 11 }}>{r.pt || "—"}</td>
                         <td style={{ fontSize: 11 }}>{r.sec || "—"}</td>
                         <td className="mono">{r.dr || "—"}</td>
+                        <td className="mono" style={{ color: "#4caf50" }}>{r.dreg || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
