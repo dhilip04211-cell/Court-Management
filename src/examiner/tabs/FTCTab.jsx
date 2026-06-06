@@ -877,12 +877,13 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                               <div className="ftc-case-top">
                                 <span className="ftc-case-cn">{c.cn || "—"}</span>
                                 <div style={{ display: "flex", gap: 4 }}>
-                                  //  CORRECT
-{ct && (
-    <span style={{ marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9 }}>
-        {ct}
-    </span>
-)}
+                                  {ct && (
+                                    <span style={{
+                                      padding: "2px 8px", borderRadius: 10, fontSize: 10,
+                                      fontWeight: 800, background: caseTypeColor(ct) + "22",
+                                      color: caseTypeColor(ct), border: `1px solid ${caseTypeColor(ct)}55`,
+                                    }}>{ct}</span>
+                                  )}
                                   <span className={`vt-tag ${c._type === "pending" ? "vt-tag-blue" : "vt-tag-green"}`}>
                                     {c._type === "pending" ? "Pending" : "Disposed"}
                                   </span>
@@ -1186,12 +1187,12 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                           </td>
                           <td style={{ color: "var(--txt3)", fontSize: 10 }}>{idx + 1}</td>
                           <td className="mono" style={{ fontWeight: 700 }}>
-                            {ct && (
-                                marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9,
-                                background: caseTypeColor(ct) + "22", color: caseTypeColor(ct),
-                                border: `1px solid ${caseTypeColor(ct)}55`, fontWeight: 800,
-                              }}>{ct}</span>
-                            )}
+                            //  CORRECT
+{ct && (
+    <span style={{ marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9 }}>
+        {ct}
+    </span>
+)}
                             {r.cn || "—"}
                           </td>
                           <td className="mono" style={{ color: "var(--gold)" }}>{r.fn || "—"}</td>
