@@ -299,8 +299,10 @@ export default function StatementTab({ db, smap }) {
   } else if (yyyy === 2026 && mm >= 7) {
     // July 2026 onwards: Use accumulated formula (NOT chained)
     // prevPending = May2026_const + (all institutions June through prev month) - (all disposals June through prev month)
+    // Institution = FIR Pending DR received + CNUM DR (case number registration)
+    // Disposal = CNUM Dereg (dereg date)
     
-    // Institution from June to prev month
+    // Count 1: FIR Pending with dr (date received) from June to prev month
     const instFromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
       if (!p) return false;
@@ -310,8 +312,9 @@ export default function StatementTab({ db, smap }) {
       return false;
     });
     
+    // Count 2: CNUM with dr (date received) from June to prev month — NOT dreg!
     const instFromCnum = allCnum.filter(r => {
-      const p = parseDateFlex(r.dreg);
+      const p = parseDateFlex(r.dr);  // ✓ FIXED: was r.dreg, now r.dr (date received)
       if (!p) return false;
       // Date in June 2026 through previous month
       if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
@@ -319,11 +322,10 @@ export default function StatementTab({ db, smap }) {
       return false;
     });
     
-    const seenInst = new Set(instFromPending.map(r => r.cr));
-    const instExtra = instFromCnum.filter(r => r.fn && !seenInst.has(r.fn));
-    const totalInstitution = instFromPending.length + instExtra.length;
+    // Total institution = sum of both (no deduplication needed)
+    const totalInstitution = instFromPending.length + instFromCnum.length;
 
-    // Disposal from June to prev month
+    // Disposal: CNUM with dreg (dereg date) from June to prev month
     const totalDisposal = allCnum.filter(r => {
       const p = parseDateFlex(r.dreg);
       if (!p) return false;
@@ -335,7 +337,7 @@ export default function StatementTab({ db, smap }) {
 
     prevPendingCount = MAY_2026_CONST + totalInstitution - totalDisposal;
     const monthRange = mm === 7 ? "Jun" : `Jun–${MON_SHORT[prevMM]}`;
-    prevPendingFormula = `May 2026 FIR Pending + Institutions (${monthRange} 2026) - Disposals (${monthRange} 2026)`;
+    prevPendingFormula = `1590 + [FIR DR (${monthRange}) + CNUM DR (${monthRange})] - [CNUM Dereg (${monthRange})]`;
   } else {
     prevPendingCount = prevPendingFirs.length;
     prevPendingFormula = `FIR Pending (dr ≤ ${prevEnd}) + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`;
