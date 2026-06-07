@@ -1187,12 +1187,13 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                           </td>
                           <td style={{ color: "var(--txt3)", fontSize: 10 }}>{idx + 1}</td>
                           <td className="mono" style={{ fontWeight: 700 }}>
-                            //  CORRECT
-{ct && (
-    <span style={{ marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9 }}>
-        {ct}
-    </span>
-)}
+                            {ct && (
+                              <span style={{
+                                marginRight: 3, padding: "1px 5px", borderRadius: 8, fontSize: 9,
+                                background: caseTypeColor(ct) + "22", color: caseTypeColor(ct),
+                                border: `1px solid ${caseTypeColor(ct)}55`, fontWeight: 800,
+                              }}>{ct}</span>
+                            )}
                             {r.cn || "—"}
                           </td>
                           <td className="mono" style={{ color: "var(--gold)" }}>{r.fn || "—"}</td>
