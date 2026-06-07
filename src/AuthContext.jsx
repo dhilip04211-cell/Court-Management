@@ -94,8 +94,26 @@ export function AuthProvider({ children }) {
   const requestSheetsToken = () => {
     return new Promise((resolve) => {
       if (!tokenClientRef.current) return resolve(null);
-      tokenCallbackRef.current = resolve;
-      tokenClientRef.current.requestAccessToken({ prompt: "" });
+      
+      let resolved = false;
+      const handleTokenResponse = (token) => {
+        if (!resolved) {
+          resolved = true;
+          resolve(token);
+        }
+      };
+      
+      tokenCallbackRef.current = handleTokenResponse;
+      
+      /* First try silent request (prompt: "none") - no UI shown */
+      tokenClientRef.current.requestAccessToken({ prompt: "none" });
+      
+      /* If silent request fails, fallback to prompted request after 2 seconds */
+      setTimeout(() => {
+        if (!resolved) {
+          tokenClientRef.current.requestAccessToken({ prompt: "" });
+        }
+      }, 2000);
     });
   };
 
@@ -127,6 +145,25 @@ export function AuthProvider({ children }) {
 
     sessionStorage.setItem("court_cms_user", JSON.stringify(userData));
     setUser(userData);
+    
+    /* ─ Auto-request Sheets token to prevent double login ─ */
+    if (tokenClientRef.current && !tok) {
+      setTimeout(() => {
+        tokenCallbackRef.current = (token) => {
+          if (token) {
+            sessionStorage.setItem("court_cms_tok", token);
+            setTok(token);
+            const expiresIn = 3600 * 1000; // 1 hour default
+            setTimeout(() => {
+              sessionStorage.removeItem("court_cms_tok");
+              setTok(null);
+            }, expiresIn);
+          }
+        };
+        tokenClientRef.current.requestAccessToken({ prompt: "none" });
+      }, 100);
+    }
+    
     return { ok: true, user: userData };
   };
 

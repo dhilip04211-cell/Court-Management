@@ -124,10 +124,16 @@ export default function Examiner() {
     } else {
       // Token missing or expired — silently request a new one first
       requestSheetsToken().then((freshTok) => {
-        if (freshTok) fetchAll(freshTok);
-        else {
-          setErrorMsg("Could not get Google Sheets access. Please sign out and sign in again.");
-          setLoadPhase("error");
+        if (freshTok) {
+          fetchAll(freshTok);
+        } else {
+          // If we can't get a token, still try to proceed
+          // The Sheets calls will fail and show an error message
+          // but at least the user won't see a double login prompt
+          console.warn("Could not obtain Sheets token - attempting to proceed anyway");
+          setErrorMsg("Note: Some features may be limited without Google Sheets access.");
+          // Don't set error phase - let user retry instead
+          setLoadPhase("idle");
         }
       });
     }

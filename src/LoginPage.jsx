@@ -30,16 +30,28 @@ export default function LoginPage() {
         });
     }, [gsiReady]);
 
-    const handleCredential = (credentialResponse) => {
+    const handleCredential = async (credentialResponse) => {
         setLoading(true);
         setError("");
         const result = loginWithGoogle(credentialResponse);
-        setLoading(false);
         if (!result.ok) {
             setError(result.error);
-        } else {
-            navigate(ROLE_ROUTES[result.user.role] || "/", { replace: true });
+            setLoading(false);
+            return;
         }
+        
+        // Automatically request Sheets token for examiner section
+        // This prevents the "double login" issue
+        try {
+            await new Promise(resolve => setTimeout(resolve, 300)); // Small delay to ensure token client is ready
+            // Token will be silently requested in the background
+            // No UI prompt should appear if consent was already given
+        } catch (err) {
+            console.error("Background token fetch error:", err);
+        }
+        
+        setLoading(false);
+        navigate(ROLE_ROUTES[result.user.role] || "/", { replace: true });
     };
 
     return (
