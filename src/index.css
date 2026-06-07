@@ -1,8 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Court Management — Global CSS Variables + Base Reset
-   All theme tokens live here. App.jsx reads [data-theme] from <html>.
-   Child tabs (EntryTab, ViewerTab, FTCTab, AbstractTab) consume
-   these variables directly — no getCSS() injection needed.
+   v2.0 — Professional UI Overhaul (Mobile + Desktop Fixed)
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -17,6 +15,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -24,6 +23,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 #root {
@@ -36,10 +36,9 @@ body {
 /* ── DARK THEME (default) ───────────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  /* App-level */
   --bg: #0D1117;
-  --navbar: rgba(13, 17, 23, 0.92);
-  --mobile-menu-bg: rgba(13, 17, 23, 0.97);
+  --navbar: rgba(13, 17, 23, 0.96);
+  --mobile-menu-bg: rgba(13, 17, 23, 0.98);
   --mobile-item-bg: rgba(255, 255, 255, 0.04);
   --text: #C9D1D9;
   --text-strong: #F0F6FC;
@@ -50,18 +49,17 @@ body {
   --accent-bg: rgba(240, 165, 0, 0.12);
   --accent-border: rgba(240, 165, 0, 0.35);
   --border: rgba(240, 246, 252, 0.08);
-  --card-bg: rgba(22, 27, 34, 0.9);
-  --card-border: rgba(240, 246, 252, 0.07);
+  --card-bg: rgba(22, 27, 34, 0.95);
+  --card-border: rgba(240, 246, 252, 0.09);
   --card-shadow: rgba(0, 0, 0, 0.3);
   --card-shadow-hover: rgba(0, 0, 0, 0.5);
   --btn-bg: rgba(255, 255, 255, 0.06);
   --logo-icon-bg: rgba(240, 165, 0, 0.15);
-  --logo-icon-shadow: rgba(240, 165, 0, 0.2);
+  --logo-icon-shadow: rgba(240, 165, 0, 0.22);
   --shadow: rgba(0, 0, 0, 0.5);
-  --scrollbar: rgba(255, 255, 255, 0.15);
+  --scrollbar: rgba(255, 255, 255, 0.12);
 
-  /* ── Examiner / child tab variables ── */
-  /* Base surface & text */
+  /* Shared child tokens */
   --bg2: #161B22;
   --bg3: #21262D;
   --bg4: #2D333B;
@@ -71,21 +69,24 @@ body {
   --bdr: rgba(240, 246, 252, 0.1);
   --bdr2: rgba(240, 246, 252, 0.06);
 
-  /* Semantic colours */
   --gold: #F0A500;
   --gold-dim: rgba(240, 165, 0, 0.15);
   --gold-border: rgba(240, 165, 0, 0.35);
   --c-blue: #58A6FF;
   --c-blue-dim: rgba(88, 166, 255, 0.12);
+  --c-blue-hover: rgba(88, 166, 255, 0.22);
   --c-green: #3FB950;
   --c-green-dim: rgba(63, 185, 80, 0.12);
+  --c-green-hover: rgba(63, 185, 80, 0.22);
   --c-red: #F85149;
   --c-red-dim: rgba(248, 81, 73, 0.12);
+  --c-red-hover: rgba(248, 81, 73, 0.22);
   --c-orange: #FFA657;
+  --c-orange-dim: rgba(255, 166, 87, 0.12);
   --c-purple: #BC8CFF;
   --c-teal: #39D0D8;
 
-  /* EntryTab (--et-*) */
+  /* EntryTab */
   --et-bg: #0D1117;
   --et-bg2: #161B22;
   --et-bg3: #21262D;
@@ -120,7 +121,7 @@ body {
   --et-fab-edit-hover: #388BFD;
   --et-shadow: rgba(0, 0, 0, 0.4);
 
-  /* ViewerTab (--vt-*) */
+  /* ViewerTab */
   --vt-bg: #0D1117;
   --vt-bg2: #161B22;
   --vt-bg3: #21262D;
@@ -143,10 +144,9 @@ body {
 
 /* ── LIGHT THEME ────────────────────────────────────────────── */
 [data-theme="light"] {
-  /* App-level */
   --bg: #F6F8FA;
-  --navbar: rgba(255, 255, 255, 0.92);
-  --mobile-menu-bg: rgba(255, 255, 255, 0.97);
+  --navbar: rgba(255, 255, 255, 0.96);
+  --mobile-menu-bg: rgba(255, 255, 255, 0.98);
   --mobile-item-bg: rgba(0, 0, 0, 0.03);
   --text: #444D56;
   --text-strong: #0D1117;
@@ -165,9 +165,8 @@ body {
   --logo-icon-bg: rgba(212, 131, 10, 0.1);
   --logo-icon-shadow: rgba(212, 131, 10, 0.15);
   --shadow: rgba(0, 0, 0, 0.12);
-  --scrollbar: rgba(0, 0, 0, 0.18);
+  --scrollbar: rgba(0, 0, 0, 0.15);
 
-  /* ── Examiner / child tab variables ── */
   --bg2: #FFFFFF;
   --bg3: #F6F8FA;
   --bg4: #EAECEF;
@@ -182,15 +181,18 @@ body {
   --gold-border: rgba(212, 131, 10, 0.35);
   --c-blue: #0969DA;
   --c-blue-dim: rgba(9, 105, 218, 0.1);
+  --c-blue-hover: rgba(9, 105, 218, 0.18);
   --c-green: #1A7F37;
   --c-green-dim: rgba(26, 127, 55, 0.1);
+  --c-green-hover: rgba(26, 127, 55, 0.18);
   --c-red: #CF222E;
   --c-red-dim: rgba(207, 34, 46, 0.1);
+  --c-red-hover: rgba(207, 34, 46, 0.18);
   --c-orange: #BC4C00;
+  --c-orange-dim: rgba(188, 76, 0, 0.1);
   --c-purple: #8250DF;
   --c-teal: #0E7490;
 
-  /* EntryTab */
   --et-bg: #F6F8FA;
   --et-bg2: #FFFFFF;
   --et-bg3: #F6F8FA;
@@ -225,7 +227,6 @@ body {
   --et-fab-edit-hover: #1A7F37;
   --et-shadow: rgba(0, 0, 0, 0.1);
 
-  /* ViewerTab */
   --vt-bg: #F6F8FA;
   --vt-bg2: #FFFFFF;
   --vt-bg3: #F6F8FA;
@@ -246,10 +247,10 @@ body {
   --vt-shadow: rgba(0, 0, 0, 0.1);
 }
 
-/* ── Global scrollbar ───────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -261,7 +262,9 @@ body {
   border-radius: 999px;
 }
 
-/* ── Auth screen full-page overlay ─────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════════════════════════════ */
 .auth-screen {
   position: fixed;
   inset: 0;
@@ -277,7 +280,7 @@ body {
 @keyframes auth-fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
 
   to {
@@ -290,7 +293,7 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 20px;
-  padding: 40px 36px;
+  padding: 40px 32px;
   max-width: 380px;
   width: 100%;
   text-align: center;
@@ -325,7 +328,7 @@ body {
 .auth-sub {
   font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
   max-width: 280px;
 }
 
@@ -356,7 +359,7 @@ body {
   cursor: pointer;
   width: 100%;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
   box-shadow: 0 2px 12px var(--logo-icon-shadow);
   margin-top: 4px;
 }
@@ -369,7 +372,7 @@ body {
 
 .auth-btn:active {
   transform: translateY(0);
-  filter: brightness(0.95);
+  filter: brightness(0.96);
 }
 
 .auth-google-icon {
@@ -385,33 +388,32 @@ body {
   margin-top: -4px;
 }
 
-/* ── Token expiry warning snackbar ─────────────────────────── */
+/* ── Token snackbar ─────────────────────────────────────────── */
 .token-snackbar {
   position: fixed;
   bottom: 24px;
   left: 50%;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(-50%);
   z-index: 8888;
-  background: #2D333B;
-  border: 1px solid rgba(240, 165, 0, 0.4);
-  color: #F0A500;
+  background: var(--bg4, #2D333B);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
   font-size: 13px;
   font-weight: 500;
   padding: 10px 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 24px var(--shadow);
   display: flex;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
   animation: snack-in 0.3s ease;
   pointer-events: none;
+  max-width: calc(100vw - 32px);
 }
 
 [data-theme="light"] .token-snackbar {
   background: #FFFFFF;
-  border-color: rgba(212, 131, 10, 0.4);
-  color: #D4830A;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 }
 
@@ -427,32 +429,16 @@ body {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   EXAMINER — CHILD TAB STYLES
-   Covers: ViewerTab (vt-*), EntryTab (et-*), FTCTab (ftc-*),
-           AbstractTab (abt-* + generic: card, btn, lbl, inp, etc.)
-   Paste this AFTER the existing content in index.css.
-   All colour tokens come from the :root / [data-theme] blocks already
-   defined in index.css — nothing is hard-coded here.
-═══════════════════════════════════════════════════════════════════════════ */
-
-/* ─────────────────────────────────────────────────────────────────────────
-   SHARED UTILITIES  (used by every tab)
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   SHARED UTILITIES
+═══════════════════════════════════════════════════════════════ */
 .vt-mono,
 .et-mono,
 .mono {
   font-family: 'JetBrains Mono', 'Fira Mono', ui-monospace, monospace;
 }
 
-/* gold text helper */
-.vt-gold,
-.et-gold {
-  color: var(--gold);
-  font-weight: 700;
-}
-
-/* ── Tags (small coloured badges) ── */
+/* Tags */
 .vt-tag {
   display: inline-flex;
   align-items: center;
@@ -490,12 +476,12 @@ body {
 }
 
 .vt-tag-purple {
-  background: rgba(188, 140, 255, .12);
+  background: rgba(188, 140, 255, 0.12);
   color: var(--c-purple);
-  border: 1px solid rgba(188, 140, 255, .35);
+  border: 1px solid rgba(188, 140, 255, 0.35);
 }
 
-/* ── Status messages shared ── */
+/* Status messages */
 .et-msg {
   margin: 10px 16px 0;
   padding: 10px 14px;
@@ -523,9 +509,9 @@ body {
   border: 1px solid var(--c-blue);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   VIEWER TAB  (vt-*)
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   VIEWER TAB (vt-*)
+═══════════════════════════════════════════════════════════════ */
 .vt-root {
   min-height: 100%;
   background: var(--vt-bg);
@@ -534,13 +520,12 @@ body {
   gap: 0;
 }
 
-/* ── Search card ── */
 .vt-search-card {
-  margin: 16px 14px 0;
+  margin: 14px 12px 0;
   background: var(--vt-bg2);
   border: 1px solid var(--vt-bdr);
   border-radius: 16px;
-  padding: 14px 14px 12px;
+  padding: 14px 12px 12px;
   box-shadow: 0 2px 12px var(--vt-shadow);
 }
 
@@ -554,6 +539,7 @@ body {
   opacity: 0.85;
 }
 
+/* FIX: flex-wrap + full-width actions on mobile */
 .vt-search-row {
   display: flex;
   align-items: flex-end;
@@ -568,8 +554,8 @@ body {
 }
 
 .vt-fg-grow {
-  flex: 1 1 0;
-  min-width: 80px;
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 .vt-lbl {
@@ -588,7 +574,7 @@ body {
   font-size: 14px;
   color: var(--vt-txt1);
   outline: none;
-  transition: border-color .18s ease, box-shadow .18s ease;
+  transition: border-color 0.18s, box-shadow 0.18s;
   width: 100%;
   -webkit-appearance: none;
   appearance: none;
@@ -596,7 +582,7 @@ body {
 
 .vt-inp:focus {
   border-color: var(--vt-inp-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vt-inp-focus) 20%, transparent);
+  box-shadow: 0 0 0 3px var(--c-blue-dim);
 }
 
 .vt-search-actions {
@@ -604,9 +590,10 @@ body {
   gap: 6px;
   align-items: flex-end;
   padding-bottom: 1px;
+  flex-shrink: 0;
 }
 
-/* ── Buttons shared ── */
+/* Buttons */
 .vt-btn {
   display: inline-flex;
   align-items: center;
@@ -618,20 +605,21 @@ body {
   font-size: 13px;
   font-weight: 700;
   padding: 9px 16px;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
   outline: none;
+  min-height: 40px;
 }
 
 .vt-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .vt-btn-primary {
   background: var(--vt-blu);
   color: #fff;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--vt-blu) 35%, transparent);
+  box-shadow: 0 2px 10px var(--c-blue-dim);
 }
 
 .vt-btn-primary:hover {
@@ -639,7 +627,7 @@ body {
 }
 
 .vt-btn-ghost {
-  background: var(--bg4, rgba(255, 255, 255, .06));
+  background: var(--bg4, rgba(255, 255, 255, 0.06));
   color: var(--vt-txt2);
   border: 1px solid var(--vt-bdr);
 }
@@ -648,13 +636,13 @@ body {
   background: var(--btn-bg);
 }
 
-/* ── Empty state ── */
+/* Empty state */
 .vt-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 52px 24px;
+  padding: 48px 24px;
   text-align: center;
 }
 
@@ -674,7 +662,6 @@ body {
   color: var(--vt-txt3);
 }
 
-/* ── Results container ── */
 .vt-results {
   display: flex;
   flex-direction: column;
@@ -682,7 +669,6 @@ body {
   padding: 0 0 24px;
 }
 
-/* ── Summary strip ── */
 .vt-summary {
   display: flex;
   align-items: center;
@@ -711,9 +697,8 @@ body {
   font-family: monospace;
 }
 
-/* ── Section ── */
 .vt-section {
-  margin: 12px 14px 0;
+  margin: 12px 12px 0;
   background: var(--vt-bg2);
   border: 1px solid var(--vt-bdr);
   border-radius: 16px;
@@ -725,7 +710,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 12px 14px 10px;
-  border-bottom: 1px solid var(--bdr2, rgba(240, 246, 252, .06));
+  border-bottom: 1px solid var(--bdr2);
 }
 
 .vt-section-icon {
@@ -752,7 +737,7 @@ body {
 }
 
 .vt-icon-cn {
-  background: color-mix(in srgb, var(--c-purple) 12%, transparent);
+  background: rgba(188, 140, 255, 0.12);
 }
 
 .vt-section-title {
@@ -789,12 +774,12 @@ body {
   color: var(--c-green);
 }
 
-/* ── Chip row (station selectors) ── */
+/* Chip row */
 .vt-chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 10px 14px 12px;
+  padding: 10px 12px 12px;
 }
 
 .vt-chip {
@@ -809,13 +794,14 @@ body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 36px;
 }
 
 .vt-chip:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .vt-chip-label {
@@ -823,7 +809,7 @@ body {
 }
 
 .vt-chip-count {
-  background: var(--bg4, rgba(255, 255, 255, .08));
+  background: var(--bg4);
   color: var(--vt-txt3);
   font-size: 10px;
   font-weight: 700;
@@ -832,7 +818,6 @@ body {
   font-family: monospace;
 }
 
-/* active states */
 .vt-chip-active-fir {
   background: var(--c-red-dim);
   border-color: var(--c-red);
@@ -851,7 +836,7 @@ body {
   color: var(--gold);
 }
 
-/* ── Panel ── */
+/* Panel */
 .vt-panel {
   margin: 0 10px 12px;
   border-radius: 12px;
@@ -860,17 +845,17 @@ body {
 
 .vt-panel-fir {
   border: 1px solid var(--c-red);
-  background: color-mix(in srgb, var(--c-red) 5%, var(--vt-bg2));
+  background: var(--c-red-dim);
 }
 
 .vt-panel-case {
   border: 1px solid var(--c-blue);
-  background: color-mix(in srgb, var(--c-blue) 4%, var(--vt-bg2));
+  background: var(--c-blue-dim);
 }
 
 .vt-panel-nv {
   border: 1px solid var(--gold-border);
-  background: color-mix(in srgb, var(--gold) 4%, var(--vt-bg2));
+  background: var(--gold-dim);
 }
 
 .vt-panel-heading {
@@ -880,7 +865,7 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--bdr2, rgba(240, 246, 252, .06));
+  border-bottom: 1px solid var(--bdr2);
 }
 
 .vt-panel-title {
@@ -889,7 +874,6 @@ body {
   color: var(--vt-txt1);
 }
 
-/* ── FIR card (inside panel) ── */
 .vt-fir-list {
   display: flex;
   flex-direction: column;
@@ -898,7 +882,7 @@ body {
 
 .vt-fir-card {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--bdr2, rgba(240, 246, 252, .05));
+  border-bottom: 1px solid var(--bdr2);
 }
 
 .vt-fir-card:last-child {
@@ -935,7 +919,7 @@ body {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--vt-txt3);
   flex-shrink: 0;
 }
@@ -948,7 +932,7 @@ body {
 .vt-fir-nv-block {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--bdr2, rgba(240, 246, 252, .06));
+  border-top: 1px solid var(--bdr2);
 }
 
 .vt-fir-nv-heading {
@@ -958,7 +942,6 @@ body {
   margin-bottom: 4px;
 }
 
-/* ── Case groups (inside panel) ── */
 .vt-case-group {
   padding: 8px 12px;
 }
@@ -974,10 +957,9 @@ body {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
-/* ── CN pills (case number buttons) ── */
 .vt-cn-pills {
   display: flex;
   flex-wrap: wrap;
@@ -994,13 +976,14 @@ body {
   font-weight: 600;
   font-family: monospace;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 34px;
 }
 
 .vt-cn-pill:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .vt-cn-active {
@@ -1021,19 +1004,19 @@ body {
 }
 
 .vt-cn-purple {
-  border-color: rgba(188, 140, 255, .35);
+  border-color: rgba(188, 140, 255, 0.35);
   color: var(--c-purple);
 }
 
 .vt-cn-active-purple {
-  background: rgba(188, 140, 255, .15);
+  background: rgba(188, 140, 255, 0.15);
   border-color: var(--c-purple);
   color: var(--c-purple);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   ENTRY TAB  (et-*)
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   ENTRY TAB (et-*)
+═══════════════════════════════════════════════════════════════ */
 .et-root {
   min-height: 100%;
   background: var(--et-bg);
@@ -1041,7 +1024,6 @@ body {
   flex-direction: column;
 }
 
-/* ── Top bar ── */
 .et-topbar {
   display: flex;
   align-items: center;
@@ -1062,7 +1044,7 @@ body {
 .et-topbar-title {
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--et-gold);
   line-height: 1;
@@ -1085,24 +1067,34 @@ body {
   border-radius: 99px;
 }
 
-/* ── Pane (scrollable content) ── */
 .et-pane {
   flex: 1;
   overflow-y: auto;
   padding-bottom: 32px;
 }
 
-/* ── Modal overlay ── */
+/* FIX: Modal overlay — not fixed, uses min-height flow trick */
 .et-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(0, 0, 0, .55);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  animation: et-fade-in .2s ease;
+  padding: 20px;
+  animation: et-fade-in 0.2s ease;
+  overflow-y: auto;
+}
+
+/* Fallback non-fixed overlay for environments that don't support fixed well */
+.et-modal-overlay-flow {
+  min-height: 300px;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
 @keyframes et-fade-in {
@@ -1120,13 +1112,13 @@ body {
   border: 1px solid var(--et-bdr);
   border-radius: 18px;
   padding: 24px 20px 20px;
-  max-width: 320px;
+  max-width: 340px;
   width: 100%;
   box-shadow: 0 8px 40px var(--et-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: et-card-in .25s cubic-bezier(.34, 1.56, .64, 1);
+  animation: et-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes et-card-in {
@@ -1159,7 +1151,6 @@ body {
   justify-content: flex-end;
 }
 
-/* ── Edit banner ── */
 .et-edit-banner {
   display: flex;
   align-items: center;
@@ -1168,7 +1159,7 @@ body {
   background: var(--et-blu-dim);
   border: 1px solid var(--et-blu);
   border-radius: 10px;
-  margin: 12px 14px 0;
+  margin: 12px 12px 0;
   padding: 8px 11px;
   font-size: 12px;
   color: var(--et-txt2);
@@ -1179,7 +1170,6 @@ body {
   color: var(--et-blu);
 }
 
-/* ── Step labels ── */
 .et-step-lbl {
   display: flex;
   align-items: center;
@@ -1189,7 +1179,7 @@ body {
   font-weight: 700;
   color: var(--et-txt2);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .et-step-num {
@@ -1225,9 +1215,8 @@ body {
   font-style: italic;
 }
 
-/* ── Cards ── */
 .et-card {
-  margin: 0 14px 0;
+  margin: 0 12px 0;
   background: var(--et-bg2);
   border: 1px solid var(--et-bdr);
   border-radius: 14px;
@@ -1245,7 +1234,6 @@ body {
   gap: 6px;
 }
 
-/* ── Form group ── */
 .et-fg {
   display: flex;
   flex-direction: column;
@@ -1254,18 +1242,17 @@ body {
 
 .et-fg-wide {
   flex: 1 1 0;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .et-lbl {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--et-txt3);
 }
 
-/* ── Inputs ── */
 .et-inp {
   background: var(--et-inp-bg);
   border: 1.5px solid var(--et-inp-bdr);
@@ -1275,30 +1262,29 @@ body {
   color: var(--et-txt1);
   outline: none;
   width: 100%;
-  transition: border-color .18s, box-shadow .18s;
+  transition: border-color 0.18s, box-shadow 0.18s;
   -webkit-appearance: none;
   appearance: none;
+  min-height: 42px;
 }
 
 .et-inp:focus {
   border-color: var(--et-inp-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--et-inp-focus) 18%, transparent);
+  box-shadow: 0 0 0 3px var(--et-blu-dim);
 }
 
 .et-inp-lg {
   font-size: 18px;
   padding: 10px 13px;
   font-weight: 700;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
 }
 
-/* ── FIR number row ── */
 .et-fir-row {
   display: flex;
   gap: 8px;
 }
 
-/* ── CR badge ── */
 .et-cr-badge {
   margin-top: 8px;
   font-size: 12px;
@@ -1312,7 +1298,6 @@ body {
   margin-left: 4px;
 }
 
-/* ── Station pills ── */
 .et-pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -1320,7 +1305,7 @@ body {
 }
 
 .et-pill {
-  padding: 6px 12px;
+  padding: 7px 13px;
   border-radius: 99px;
   border: 1.5px solid var(--et-bdr);
   background: var(--et-pill-bg);
@@ -1328,13 +1313,14 @@ body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 38px;
 }
 
 .et-pill:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .et-pill-active {
@@ -1350,11 +1336,11 @@ body {
   color: var(--et-red);
 }
 
-/* ── Date row ── */
 .et-date-row {
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .et-cal-wrap {
@@ -1366,9 +1352,9 @@ body {
 
 .et-cal-btn {
   width: 42px;
-  height: 40px;
+  height: 42px;
   border-radius: 10px;
-  background: var(--et-bg3, rgba(33, 38, 45, .8));
+  background: var(--et-bg3);
   border: 1.5px solid var(--et-bdr);
   display: flex;
   align-items: center;
@@ -1388,7 +1374,7 @@ body {
   line-height: 1;
 }
 
-/* ── Buttons (et-*) ── */
+/* Buttons */
 .et-btn {
   display: inline-flex;
   align-items: center;
@@ -1400,10 +1386,11 @@ body {
   font-size: 13px;
   font-weight: 700;
   padding: 10px 18px;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   white-space: nowrap;
+  min-height: 42px;
 }
 
 .et-btn:active {
@@ -1414,6 +1401,7 @@ body {
   padding: 6px 12px;
   font-size: 11px;
   border-radius: 8px;
+  min-height: 32px;
 }
 
 .et-btn-o {
@@ -1440,12 +1428,11 @@ body {
   color: var(--et-grn);
 }
 
-/* ── FAB save button ── */
 .et-action-row {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin: 12px 14px 0;
+  margin: 12px 12px 0;
 }
 
 .et-fab {
@@ -1462,17 +1449,18 @@ body {
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
-  transition: all .2s ease;
-  box-shadow: 0 3px 16px color-mix(in srgb, var(--et-fab-bg) 35%, transparent);
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 16px var(--et-grn-dim);
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 50px;
 }
 
 .et-fab:hover:not(:disabled) {
   background: var(--et-fab-hover);
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--et-fab-bg) 40%, transparent);
+  box-shadow: 0 6px 24px var(--et-grn-dim);
 }
 
 .et-fab:active:not(:disabled) {
@@ -1486,14 +1474,14 @@ body {
 
 .et-fab-edit {
   background: var(--et-fab-edit-bg);
-  box-shadow: 0 3px 16px color-mix(in srgb, var(--et-fab-edit-bg) 35%, transparent);
+  box-shadow: 0 3px 16px var(--et-blu-dim);
 }
 
 .et-fab-edit:hover:not(:disabled) {
   background: var(--et-fab-edit-hover);
 }
 
-/* ── Badges ── */
+/* Badges */
 .et-bdg {
   display: inline-flex;
   align-items: center;
@@ -1515,7 +1503,7 @@ body {
   border: 1px solid var(--et-red);
 }
 
-/* ── Recent FIRs table ── */
+/* Table */
 .et-tbl-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1534,7 +1522,7 @@ body {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--et-txt3);
   border-bottom: 1px solid var(--et-bdr2);
   white-space: nowrap;
@@ -1551,17 +1539,15 @@ body {
 }
 
 .et-table tbody tr:hover td {
-  background: rgba(255, 255, 255, .02);
+  background: rgba(255, 255, 255, 0.02);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   FTC TAB  (ftc-*)   — FIR → Case Numbered
-   Most layout uses vt-* classes already; only FTC-specific overrides below
-───────────────────────────────────────────────────────────────────────── */
-/* ── FIR info block ── */
+/* ═══════════════════════════════════════════════════════════════
+   FTC TAB (ftc-*)
+═══════════════════════════════════════════════════════════════ */
 .ftc-fir-info {
   padding: 10px 12px 6px;
-  border-bottom: 1px solid var(--bdr2, rgba(240, 246, 252, .06));
+  border-bottom: 1px solid var(--bdr2);
 }
 
 .ftc-fir-cr {
@@ -1582,13 +1568,14 @@ body {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .ftc-flbl {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--vt-txt3);
   flex-shrink: 0;
   min-width: 80px;
@@ -1599,7 +1586,6 @@ body {
   color: var(--vt-txt1);
 }
 
-/* ── Cases header & list ── */
 .ftc-cases-hdr {
   display: flex;
   align-items: center;
@@ -1633,12 +1619,13 @@ body {
   border-radius: 10px;
   padding: 10px 11px;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
+  min-height: 60px;
 }
 
 .ftc-case-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .ftc-case-card:hover {
@@ -1687,7 +1674,6 @@ body {
   color: var(--c-blue);
 }
 
-/* ── Proceed button ── */
 .ftc-proceed-btn {
   display: flex;
   align-items: center;
@@ -1698,13 +1684,14 @@ body {
   border: 1.5px solid var(--c-blue);
   color: var(--c-blue);
   border-radius: 12px;
-  padding: 12px;
+  padding: 13px;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 48px;
 }
 
 .ftc-proceed-btn:hover {
@@ -1716,9 +1703,8 @@ body {
   transform: scale(0.97);
 }
 
-/* ── Confirm panel ── */
 .ftc-confirm {
-  background: var(--bg4, rgba(45, 51, 59, .6));
+  background: var(--bg4);
   border: 1px solid var(--gold-border);
   border-radius: 12px;
   padding: 12px;
@@ -1734,6 +1720,7 @@ body {
   color: var(--gold);
 }
 
+/* FIX: single column on mobile instead of 2 */
 .ftc-confirm-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1750,7 +1737,7 @@ body {
   font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: 0.05em;
   color: var(--vt-txt3);
 }
 
@@ -1762,7 +1749,6 @@ body {
 
 .ftc-warn-note {
   font-size: 11px;
-  color: var(--vt-txt3);
   line-height: 1.4;
   background: var(--c-red-dim);
   border: 1px solid var(--c-red);
@@ -1787,12 +1773,13 @@ body {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   display: flex;
   align-items: center;
   gap: 5px;
+  min-height: 42px;
 }
 
 .ftc-execute-btn:hover:not(:disabled) {
@@ -1809,9 +1796,9 @@ body {
   cursor: not-allowed;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   ABSTRACT TAB  (abt-*)  +  generic classes used inside AbstractTab
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   ABSTRACT TAB (abt-*)
+═══════════════════════════════════════════════════════════════ */
 .abt-root {
   min-height: 100%;
   background: var(--bg);
@@ -1819,35 +1806,48 @@ body {
   flex-direction: column;
 }
 
-/* ── Inner tab bar ── */
+/* FIX: Tab bar with proper overflow scroll and no bleed */
 .abt-tabbar {
   display: flex;
   background: var(--bg2);
-  border-bottom: 1px solid var(--bdr);
-  padding: 0 8px;
-  gap: 2px;
+  border-bottom: 2px solid var(--bdr);
+  padding: 0 4px;
+  gap: 0;
   position: sticky;
   top: 0;
   z-index: 10;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  min-height: 46px;
+  /* Prevent tab bar from causing layout bleed */
+  max-width: 100%;
+}
+
+.abt-tabbar::-webkit-scrollbar {
+  display: none;
 }
 
 .abt-tab {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 11px 14px 10px;
+  padding: 11px 13px 10px;
   font-size: 12px;
   font-weight: 600;
   color: var(--txt3);
   background: none;
   border: none;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color .18s, border-color .18s;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.18s, border-color 0.18s;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   white-space: nowrap;
+  flex-shrink: 0;
+  min-height: 44px;
 }
 
 .abt-tab:active {
@@ -1865,13 +1865,13 @@ body {
   line-height: 1;
 }
 
-/* ── Generic form/layout classes used in AbstractTab ── */
+/* Generic card */
 .card {
   background: var(--bg2);
   border: 1px solid var(--bdr);
   border-radius: 14px;
-  padding: 14px;
-  margin: 10px 12px 0;
+  padding: 14px 12px;
+  margin: 10px 10px 0;
   box-shadow: 0 1px 8px var(--shadow);
 }
 
@@ -1883,7 +1883,7 @@ body {
   font-size: 12px;
   font-weight: 800;
   color: var(--txt1);
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -1892,7 +1892,7 @@ body {
   min-width: 0;
 }
 
-.ctitle > * {
+.ctitle>* {
   min-width: 0;
 }
 
@@ -1906,14 +1906,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1 1 140px;
+  flex: 1 1 130px;
+  min-width: 0;
 }
 
 .lbl {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--txt3);
 }
 
@@ -1926,21 +1927,22 @@ body {
   color: var(--txt1);
   outline: none;
   width: 100%;
-  transition: border-color .18s, box-shadow .18s;
+  transition: border-color 0.18s, box-shadow 0.18s;
   -webkit-appearance: none;
   appearance: none;
+  min-height: 40px;
 }
 
 .inp:focus {
   border-color: var(--et-inp-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--et-inp-focus) 15%, transparent);
+  box-shadow: 0 0 0 3px var(--et-blu-dim);
 }
 
 select.inp {
   cursor: pointer;
 }
 
-/* ── Generic buttons ── */
+/* Generic buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1952,20 +1954,22 @@ select.inp {
   font-size: 12px;
   font-weight: 700;
   padding: 8px 14px;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   white-space: nowrap;
+  min-height: 36px;
 }
 
 .btn:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .btn-sm {
   padding: 5px 10px;
   font-size: 11px;
   border-radius: 7px;
+  min-height: 30px;
 }
 
 .btn-o {
@@ -1994,7 +1998,7 @@ select.inp {
   cursor: not-allowed;
 }
 
-/* ── Search wrap ── */
+/* Search wrap */
 .search-wrap {
   position: relative;
   display: flex;
@@ -2002,7 +2006,7 @@ select.inp {
 }
 
 .search-wrap .inp {
-  padding-right: 30px;
+  padding-right: 32px;
 }
 
 .search-clear {
@@ -2014,95 +2018,125 @@ select.inp {
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
-  padding: 2px;
+  padding: 4px;
+  min-height: auto;
 }
 
-/* ── Stat grid ── */
+/* FIX: Stat grid — max 2 columns on narrow viewports */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 6px;
-  margin: 10px 12px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 10px 0;
 }
 
 .stat {
   background: var(--bg2);
   border: 1px solid var(--bdr);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 12px 11px 10px;
   cursor: pointer;
-  transition: border-color .18s;
+  transition: border-color 0.18s, transform 0.12s, box-shadow 0.18s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 14px 14px 0 0;
 }
 
 .stat:hover,
 .stat.active-st {
   border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--gold-dim);
+}
+
+.stat:active {
+  transform: scale(0.96);
 }
 
 .stat-lbl {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--txt3);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.05em;
   line-height: 1.3;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .stat-val {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .stat-sub {
   font-size: 10px;
   color: var(--txt3);
-  margin-top: 3px;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
-/* ── Abstract grid ── */
+/* FIX: Abstract grid — single col on mobile, 2 on tablet+ */
 .abs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   padding-bottom: 16px;
-  margin: 10px 12px 0;
+  margin: 10px 10px 0;
 }
 
-/* ── Abstract table wrapper ── */
-.abs-tbl-wrap {
+/* Table wrapper — always scroll horizontally */
+.abs-tbl-wrap,
+.tbl-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  max-width: 100%;
 }
 
-/* ── Abstract table ── */
 .abs-tbl {
   width: 100%;
-  min-width: 520px;
-  border-collapse: collapse;
+  min-width: 480px;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
   color: var(--txt2);
 }
 
-.abs-tbl th {
+.abs-tbl thead th {
   text-align: left;
-  padding: 5px 6px;
+  padding: 6px 8px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.05em;
   color: var(--txt3);
-  border-bottom: 1px solid var(--bdr2);
-  white-space: normal;
+  border-bottom: 2px solid var(--bdr);
+  white-space: nowrap;
+  background: var(--bg3);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .abs-tbl td {
-  padding: 6px 6px;
+  padding: 7px 8px;
   border-bottom: 1px solid var(--bdr2);
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .abs-tbl tbody tr:last-child td {
@@ -2110,33 +2144,20 @@ select.inp {
 }
 
 .abs-tbl tbody tr:hover td {
-  background: rgba(255, 255, 255, .02);
+  background: var(--gold-dim);
 }
 
 .abs-tbl .tot-row td {
-  font-weight: 700;
+  font-weight: 800;
   color: var(--txt1);
-  border-top: 1px solid var(--bdr);
+  border-top: 2px solid var(--bdr);
+  background: var(--bg3);
   padding-top: 8px;
-}
-
-.no-data {
-  text-align: center;
-  padding: 16px !important;
-  color: var(--txt3) !important;
-  font-style: italic;
-}
-
-/* ── Table wrap (scrollable) ── */
-.tbl-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: 8px;
 }
 
 .tbl-wrap table {
   width: 100%;
-  min-width: 520px;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 12px;
   color: var(--txt2);
@@ -2148,11 +2169,13 @@ select.inp {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--txt3);
   border-bottom: 1px solid var(--bdr);
   white-space: nowrap;
   background: var(--bg3);
+  position: sticky;
+  top: 0;
 }
 
 .tbl-wrap td {
@@ -2162,24 +2185,23 @@ select.inp {
 }
 
 .tbl-wrap tbody tr:hover td {
-  background: rgba(255, 255, 255, .02);
+  background: var(--gold-dim);
 }
 
-/* ── Year badge ── */
+/* Badges */
 .yr-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
+  padding: 2px 7px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
   background: var(--gold-dim);
   color: var(--gold);
   border: 1px solid var(--gold-border);
 }
 
-/* ── Badge helpers ── */
 .bdg {
   display: inline-flex;
   align-items: center;
@@ -2201,7 +2223,6 @@ select.inp {
   border: 1px solid var(--c-blue);
 }
 
-/* ── Date badges ── */
 .abt-date-badge {
   display: inline-flex;
   align-items: center;
@@ -2219,21 +2240,19 @@ select.inp {
 }
 
 .abt-date-missing {
-  background: var(--c-orange, rgba(255, 166, 87, .12));
-  color: var(--c-orange, #FFA657);
-  border: 1px solid rgba(255, 166, 87, .4);
+  background: var(--c-orange-dim);
+  color: var(--c-orange);
+  border: 1px solid rgba(255, 166, 87, 0.4);
 }
 
-/* ── Row highlights ── */
 .abt-row-bad td {
-  background: color-mix(in srgb, var(--c-red) 5%, transparent) !important;
+  background: var(--c-red-dim) !important;
 }
 
 .abt-row-missing td {
-  background: color-mix(in srgb, var(--c-orange, #FFA657) 5%, transparent) !important;
+  background: var(--c-orange-dim) !important;
 }
 
-/* ── CR badges (good/bad) ── */
 .abt-cr-bad {
   background: var(--c-red-dim);
   color: var(--c-red);
@@ -2252,7 +2271,6 @@ select.inp {
   font-size: 12px;
 }
 
-/* ── Legend ── */
 .abt-legend {
   display: flex;
   gap: 10px;
@@ -2268,20 +2286,16 @@ select.inp {
   color: var(--txt3);
 }
 
-/* ── Pending FIR panel (abt-pend-*) ── */
-.abt-pend-root {
-  padding: 0;
-}
-
+/* Pending FIR station bar */
 .abt-st-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 12px 12px 6px;
+  padding: 10px 10px 8px;
   background: var(--bg2);
   border-bottom: 1px solid var(--bdr);
   position: sticky;
-  top: 45px;
+  top: 46px;
   z-index: 5;
 }
 
@@ -2289,21 +2303,22 @@ select.inp {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 11px;
-  border-radius: 99px;
+  padding: 7px 12px;
+  border-radius: 10px;
   border: 1.5px solid var(--bdr);
   background: var(--bg3);
   color: var(--txt2);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 38px;
 }
 
 .abt-st-chip:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .abt-st-active {
@@ -2318,11 +2333,11 @@ select.inp {
 }
 
 .abt-st-cnt {
-  background: rgba(255, 255, 255, .08);
+  background: var(--bg4);
   color: var(--txt3);
   font-size: 10px;
-  font-weight: 700;
-  padding: 1px 5px;
+  font-weight: 800;
+  padding: 1px 6px;
   border-radius: 99px;
   font-family: monospace;
 }
@@ -2330,11 +2345,15 @@ select.inp {
 .abt-st-warn {
   font-size: 9px;
   color: var(--c-red);
-  font-weight: 700;
+  font-weight: 800;
+}
+
+.abt-pend-root {
+  padding: 0;
 }
 
 .abt-pend-panel {
-  padding: 12px;
+  padding: 12px 10px;
 }
 
 .abt-pend-hdr {
@@ -2359,7 +2378,7 @@ select.inp {
   border-radius: 99px;
 }
 
-/* ── Maintenance tab ── */
+/* Maintenance */
 .abt-maint-root {
   padding: 0 0 24px;
 }
@@ -2369,11 +2388,11 @@ select.inp {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin: 12px;
+  margin: 12px 10px 0;
   background: var(--bg2);
-  border: 1px solid var(--bdr);
-  border-radius: 14px;
-  padding: 14px;
+  border: 1.5px solid var(--bdr);
+  border-radius: 16px;
+  padding: 14px 12px;
 }
 
 .abt-scan-icon {
@@ -2428,17 +2447,18 @@ select.inp {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 0 12px;
+  padding: 10px 10px 0;
   margin-bottom: 4px;
 }
 
 .abt-issue-chip {
-  flex: 1;
+  flex: 1 1 80px;
   min-width: 80px;
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 12px 10px 10px;
   text-align: center;
   border: 1px solid var(--bdr);
+  position: relative;
 }
 
 .abt-issue-red {
@@ -2461,7 +2481,8 @@ select.inp {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .abt-issue-red .abt-issue-num {
@@ -2477,14 +2498,14 @@ select.inp {
 }
 
 .abt-issue-lbl {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9.5px;
+  font-weight: 700;
   color: var(--txt3);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.05em;
 }
 
-/* ── Message helpers ── */
+/* Message helpers */
 .msg-ok {
   background: var(--c-green-dim);
   color: var(--c-green);
@@ -2515,7 +2536,7 @@ select.inp {
   font-weight: 600;
 }
 
-/* ── Spinner ── */
+/* Spinner */
 .spin {
   display: inline-block;
   width: 12px;
@@ -2523,7 +2544,7 @@ select.inp {
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin .6s linear infinite;
+  animation: spin 0.6s linear infinite;
   vertical-align: middle;
 }
 
@@ -2533,100 +2554,16 @@ select.inp {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   RESPONSIVE TWEAKS  (≤ 420 px — typical phone)
-───────────────────────────────────────────────────────────────────────── */
-@media (max-width: 600px) {
-  .vt-search-row {
-    flex-wrap: wrap;
-  }
-
-  .vt-search-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .abs-grid {
-    grid-template-columns: 1fr;
-    margin: 8px 8px 0;
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .ftc-confirm-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .abt-tabbar {
-    overflow-x: auto;
-  }
-
-  .card {
-    margin: 8px 8px 0;
-    padding: 12px 10px;
-  }
-
-  .abs-tbl {
-    font-size: 11px;
-  }
-  .abs-tbl th {
-    font-size: 9.5px;
-    padding: 4px 4px;
-  }
-  .abs-tbl td {
-    padding: 4px 4px;
-  }
-  .yr-badge {
-    font-size: 9.5px;
-    padding: 1px 5px;
-  }
+.no-data {
+  text-align: center;
+  padding: 16px !important;
+  color: var(--txt3) !important;
+  font-style: italic;
 }
 
-@media (max-width: 400px) {
-  .abs-tbl {
-    font-size: 10px;
-  }
-  .abs-tbl th {
-    font-size: 9px;
-    padding: 3px 2px;
-  }
-  .abs-tbl td {
-    padding: 3px 2px;
-  }
-  .yr-badge {
-    font-size: 9px;
-    padding: 1px 4px;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ANDROID-STYLE UI OVERHAUL — Drop this at the END of index.css
-   Covers: SectionBuilder (sb-*), CaseDetail (cd-*),
-           StationYearMatrix (matrix), AbstractTab (abt-* + stat-* + tbl-*)
-   All colour tokens reuse existing :root variables — nothing hard-coded.
-   Designed for a Material You / MIUI-inspired dark-first native feel.
-═══════════════════════════════════════════════════════════════════════════ */
-
-/* ─────────────────────────────────────────────────────────────────────────
-   SHARED ANDROID PRIMITIVES
-───────────────────────────────────────────────────────────────────────── */
-
-/* Ripple-style press feedback (applied to tappable elements) */
-@keyframes and-ripple {
-  from {
-    opacity: 0.3;
-    transform: scale(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(2.5);
-  }
-}
-
-/* Slide-up entrance for cards/panels */
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════════ */
 @keyframes and-slide-up {
   from {
     opacity: 0;
@@ -2639,7 +2576,6 @@ select.inp {
   }
 }
 
-/* Pop-in for chips */
 @keyframes and-pop {
   0% {
     opacity: 0;
@@ -2656,23 +2592,9 @@ select.inp {
   }
 }
 
-/* Skeleton shimmer */
-@keyframes and-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   SECTION BUILDER  (sb-*)
-   Redesigned as a full-height Android bottom-sheet style builder.
-   Act pills → Material Chip Group. Preview → elevated surface bar.
-   History chips → horizontal scroll with momentum.
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   SECTION BUILDER (sb-*)
+═══════════════════════════════════════════════════════════════ */
 .sb-root {
   display: flex;
   flex-direction: column;
@@ -2680,7 +2602,6 @@ select.inp {
   animation: and-slide-up 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── History area ── */
 .sb-hist-area {
   padding: 8px 12px 4px;
   border-bottom: 1px solid var(--bdr2);
@@ -2701,7 +2622,7 @@ select.inp {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding: 0 0 4px;
 }
 
 .sb-hist-scroll::-webkit-scrollbar {
@@ -2727,15 +2648,15 @@ select.inp {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-height: 34px;
 }
 
 .sb-hist-chip:active {
   transform: scale(0.94);
   background: var(--gold);
-  color: #fff;
+  color: #0D1117;
 }
 
-/* ── Preview bar — elevated glass surface ── */
 .sb-preview {
   margin: 10px 12px 0;
   background: var(--bg3);
@@ -2749,13 +2670,12 @@ select.inp {
   line-height: 1.55;
   min-height: 44px;
   word-break: break-word;
-  transition: border-color 0.2s;
-  position: relative;
+  transition: border-color 0.2s, background 0.2s;
 }
 
 .sb-preview:not(:empty) {
   border-color: var(--gold-border);
-  background: color-mix(in srgb, var(--gold) 5%, var(--bg3));
+  background: var(--gold-dim);
 }
 
 .sb-preview-hint {
@@ -2774,13 +2694,11 @@ select.inp {
   padding: 0 2px;
 }
 
-/* ── Chips area — added sections ── */
 .sb-chips-area {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   padding: 8px 12px 0;
-  animation: and-slide-up 0.18s ease;
 }
 
 .sb-chip {
@@ -2861,14 +2779,13 @@ select.inp {
   background: var(--c-red-dim);
 }
 
-/* ── Act selector — Material Chip Group ── */
 .sb-act-scroll {
   display: flex;
   gap: 6px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 10px 12px 2px;
+  padding: 10px 12px 4px;
 }
 
 .sb-act-scroll::-webkit-scrollbar {
@@ -2891,8 +2808,7 @@ select.inp {
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
   outline: none;
-  position: relative;
-  overflow: hidden;
+  min-height: 38px;
 }
 
 .sb-act-pill:active {
@@ -2906,14 +2822,12 @@ select.inp {
   box-shadow: 0 0 0 1px var(--c-blue);
 }
 
-/* ── Section input area ── */
 .sb-input-area {
   margin: 10px 12px 0;
   background: var(--bg2);
   border: 1.5px solid var(--bdr);
   border-radius: 14px;
   padding: 10px 12px 12px;
-  animation: and-slide-up 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sb-input-lbl {
@@ -2929,11 +2843,12 @@ select.inp {
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sb-add-btn {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   background: var(--c-blue);
   color: #fff;
@@ -2945,7 +2860,7 @@ select.inp {
   align-items: center;
   justify-content: center;
   transition: all 0.18s ease;
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--c-blue) 35%, transparent);
+  box-shadow: 0 3px 12px var(--c-blue-dim);
   -webkit-tap-highlight-color: transparent;
   outline: none;
   flex-shrink: 0;
@@ -2961,27 +2876,21 @@ select.inp {
 
 .sb-add-btn:not(:disabled):active {
   transform: scale(0.9);
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--c-blue) 30%, transparent);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   CASE DETAIL  (cd-*)
-   Redesigned as Material You "elevated card" with a vivid left-accent
-   strip, icon header, and a compact 2-col grid for all fields.
-───────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   CASE DETAIL (cd-*)
+═══════════════════════════════════════════════════════════════ */
 .cd-root {
   background: var(--bg2);
   border: 1px solid var(--cd-border, var(--bdr));
   border-radius: 16px;
   overflow: hidden;
   animation: and-slide-up 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Left colored strip via box-shadow trick — no extra element */
-  box-shadow:
-    inset 4px 0 0 0 var(--cd-color, var(--gold)),
-    0 2px 12px rgba(0, 0, 0, 0.18);
+  border-left: 4px solid var(--cd-color, var(--gold));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 }
 
-/* ── Header strip ── */
 .cd-header {
   display: flex;
   align-items: center;
@@ -3028,7 +2937,7 @@ select.inp {
   margin-top: 2px;
 }
 
-/* ── Fields grid ── */
+/* FIX: cd-fields single col on mobile */
 .cd-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3045,7 +2954,6 @@ select.inp {
   border-bottom: none;
 }
 
-/* Full-width fields (parties, description, etc.) */
 .cd-field-full {
   grid-column: 1 / -1;
 }
@@ -3082,14 +2990,13 @@ select.inp {
   font-style: italic;
 }
 
-/* ── Linked NV section ── */
 .cd-nv-section {
   border-top: 1px solid var(--bdr);
   padding: 8px 10px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: color-mix(in srgb, var(--c-amber, #F59E0B) 4%, var(--bg2));
+  background: var(--gold-dim);
 }
 
 .cd-nv-heading {
@@ -3101,24 +3008,15 @@ select.inp {
   padding: 0 4px;
 }
 
-/* Nested NV cards get a lighter border */
 .cd-nv-section .cd-root {
-  box-shadow: inset 3px 0 0 0 var(--c-amber, #F59E0B), 0 1px 6px rgba(0, 0, 0, 0.1);
   border-radius: 12px;
+  border-left-width: 3px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   STATION YEAR MATRIX  — complete visual overhaul
-   Replaces the plain .abs-tbl table with a styled matrix:
-   - Sticky first column (station names)
-   - Color-coded heat cells (0 = dim, low = amber, high = green)
-   - Clickable year headers with active state
-   - Export button as Material outlined button
-───────────────────────────────────────────────────────────────────────── */
-
-/* The wrapping .tbl-wrap already handles overflow-x.
-   We override abs-tbl inside the matrix container. */
-
+/* ═══════════════════════════════════════════════════════════════
+   STATION YEAR MATRIX
+═══════════════════════════════════════════════════════════════ */
 .matrix-root {
   animation: and-slide-up 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -3146,6 +3044,7 @@ select.inp {
   transition: all 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  min-height: 36px;
 }
 
 .matrix-export-btn:hover {
@@ -3157,23 +3056,22 @@ select.inp {
   transform: scale(0.95);
 }
 
-/* Override for the abs-tbl when used inside the matrix */
 .matrix-tbl {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
+  min-width: 400px;
 }
 
-/* Sticky station column */
 .matrix-tbl th:first-child,
 .matrix-tbl td:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--bg2);
-  min-width: 110px;
-  max-width: 130px;
+  min-width: 100px;
+  max-width: 120px;
 }
 
 .matrix-tbl thead th {
@@ -3193,20 +3091,15 @@ select.inp {
   color: var(--txt2);
 }
 
-/* Year header — tappable */
 .matrix-yr-th {
   cursor: pointer;
   text-align: center;
-  min-width: 54px;
+  min-width: 50px;
   transition: background 0.15s;
 }
 
 .matrix-yr-th:hover {
   background: var(--bg4) !important;
-}
-
-.matrix-yr-th:active {
-  background: var(--gold-dim) !important;
 }
 
 .yr-badge {
@@ -3228,18 +3121,17 @@ select.inp {
   color: #0D1117;
 }
 
-/* Station rows */
 .matrix-tbl tbody tr {
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .matrix-tbl tbody tr:hover td {
-  background: color-mix(in srgb, var(--gold) 5%, transparent);
+  background: var(--gold-dim);
 }
 
 .matrix-tbl tbody tr:hover td:first-child {
-  background: color-mix(in srgb, var(--gold) 8%, var(--bg2));
+  background: var(--gold-dim);
 }
 
 .matrix-tbl td {
@@ -3255,7 +3147,6 @@ select.inp {
   padding: 7px 10px;
 }
 
-/* Heat cell coloring based on inline style — uses data-attr instead */
 .matrix-cell-zero {
   color: var(--txt3) !important;
   opacity: 0.5;
@@ -3276,7 +3167,6 @@ select.inp {
   font-weight: 800 !important;
 }
 
-/* Total column */
 .matrix-total-th {
   color: var(--gold) !important;
   text-align: center !important;
@@ -3290,7 +3180,6 @@ select.inp {
   font-size: 13px !important;
 }
 
-/* Total row */
 .tot-row td {
   font-weight: 800 !important;
   color: var(--txt1) !important;
@@ -3306,356 +3195,119 @@ select.inp {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  background: var(--bg3) !important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   ABSTRACT TAB  (abt-*)  — stat cards + table improvements
-───────────────────────────────────────────────────────────────────────── */
-
-/* ── Inner tab bar: Material-style segmented tabs ── */
-.abt-tabbar {
-  display: flex;
-  background: var(--bg2);
-  border-bottom: 2px solid var(--bdr);
-  padding: 0 12px;
-  gap: 0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.abt-tabbar::-webkit-scrollbar {
-  display: none;
-}
-
-.abt-tab {
+/* ═══════════════════════════════════════════════════════════════
+   MODAL — generic (used in pending FIR edit)
+═══════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.62);
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 13px 16px 11px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--txt3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  border-bottom: 2.5px solid transparent;
-  margin-bottom: -2px;
-  transition: color 0.18s, border-color 0.18s;
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
-  white-space: nowrap;
-  position: relative;
+  justify-content: center;
+  padding: 20px;
+  animation: et-fade-in 0.2s ease;
+  overflow-y: auto;
 }
 
-.abt-tab:active {
-  opacity: 0.7;
-}
-
-.abt-tab-active {
-  color: var(--gold);
-  border-bottom-color: var(--gold);
-  font-weight: 800;
-}
-
-.abt-tab-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-/* ── Stat cards — redesigned as Android metric tiles ── */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 7px;
-  margin: 12px 12px 0;
-}
-
-.stat {
+.modal {
   background: var(--bg2);
   border: 1px solid var(--bdr);
-  border-radius: 14px;
-  padding: 12px 12px 10px;
-  cursor: pointer;
-  transition: border-color 0.18s, transform 0.12s;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Colored top accent bar */
-.stat::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--gold);
-  border-radius: 14px 14px 0 0;
-  transition: height 0.18s;
-}
-
-.stat:hover,
-.stat.active-st {
-  border-color: var(--gold);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--gold) 15%, transparent);
-}
-
-.stat:active {
-  transform: scale(0.96);
-}
-
-.stat-lbl {
-  font-size: 9.5px;
-  color: var(--txt3);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  line-height: 1.3;
-  margin-bottom: 5px;
-}
-
-.stat-val {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--gold);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.stat-sub {
-  font-size: 10px;
-  color: var(--txt3);
-  margin-top: 4px;
-  font-weight: 500;
-}
-
-/* ── Filter chips in abstract ── */
-.abs-filter-row {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 8px 12px 0;
-}
-
-.abs-filter-row::-webkit-scrollbar {
-  display: none;
-}
-
-/* Station bar in pending FIR */
-.abt-st-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 12px 8px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--bdr);
-  position: sticky;
-  top: 45px;
-  z-index: 5;
-}
-
-.abt-st-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 12px;
-  border-radius: 10px;
-  border: 1.5px solid var(--bdr);
-  background: var(--bg3);
-  color: var(--txt2);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
-}
-
-.abt-st-chip:active {
-  transform: scale(0.94);
-}
-
-.abt-st-active {
-  background: var(--gold-dim);
-  border-color: var(--gold-border);
-  color: var(--gold);
-  font-weight: 800;
-}
-
-.abt-st-cnt {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--txt3);
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 99px;
-  font-family: monospace;
-}
-
-.abt-st-warn {
-  font-size: 9px;
-  color: var(--c-red);
-  font-weight: 800;
-}
-
-/* ── Abstract table (abs-tbl) improvements ── */
-.abs-tbl {
+  border-radius: 18px;
+  padding: 22px 18px 18px;
+  max-width: 360px;
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 12px;
-  color: var(--txt2);
-}
-
-.abs-tbl thead th {
-  text-align: left;
-  padding: 6px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--txt3);
-  border-bottom: 2px solid var(--bdr);
-  white-space: nowrap;
-  background: var(--bg3);
-  position: sticky;
-  top: 0;
-}
-
-.abs-tbl td {
-  padding: 7px 8px;
-  border-bottom: 1px solid var(--bdr2);
-  vertical-align: middle;
-}
-
-.abs-tbl tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.abs-tbl tbody tr:hover td {
-  background: color-mix(in srgb, var(--gold) 4%, transparent);
-}
-
-.abs-tbl .tot-row td {
-  font-weight: 800;
-  color: var(--txt1);
-  border-top: 2px solid var(--bdr);
-  background: var(--bg3);
-  padding-top: 8px;
-}
-
-/* ── Issue summary chips (maintenance tab) ── */
-.abt-issue-chip {
-  flex: 1;
-  min-width: 80px;
-  border-radius: 14px;
-  padding: 12px 12px 10px;
-  text-align: center;
-  border: 1px solid var(--bdr);
-  position: relative;
-  overflow: hidden;
-}
-
-.abt-issue-num {
-  font-size: 26px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  margin-bottom: 4px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.abt-issue-lbl {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: var(--txt3);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ── Scan card ── */
-.abt-scan-card {
+  box-shadow: 0 8px 40px var(--shadow);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
-  flex-wrap: wrap;
-  margin: 12px 12px 0;
-  background: var(--bg2);
-  border: 1.5px solid var(--bdr);
-  border-radius: 16px;
-  padding: 14px;
-  animation: and-slide-up 0.2s ease;
+  animation: et-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.abt-scan-title {
-  font-size: 14px;
+.modal-title {
+  font-size: 15px;
   font-weight: 800;
   color: var(--txt1);
-  margin-bottom: 3px;
 }
 
-.abt-scan-sub {
-  font-size: 11px;
-  color: var(--txt3);
-  line-height: 1.4;
+.modal-body {
+  font-size: 13px;
+  color: var(--txt2);
+  line-height: 1.5;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   RESPONSIVE  (≤ 420 px)
-───────────────────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE FIRST
+═══════════════════════════════════════════════════════════════ */
+
+/* Tablet and up: 2-col abstract grid */
+@media (min-width: 640px) {
   .abs-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .stat-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   }
 
-  .stat {
-    padding: 10px;
+  .cd-fields {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .abs-tbl-wrap,
-  .tbl-wrap {
-    padding: 0 8px 10px;
-  }
-
-  .abs-tbl,
-  .tbl-wrap table {
-    width: 100%;
-    min-width: 520px;
-  }
-
-  .abs-tbl th,
-  .tbl-wrap th,
-  .abs-tbl td,
-  .tbl-wrap td {
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-
-  .abs-tbl th,
-  .tbl-wrap th {
-    white-space: normal;
-  }
-
-  .abs-tbl td,
-  .tbl-wrap td {
-    word-break: break-word;
+  .ftc-confirm-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 420px) {
+/* Desktop: wider abstract grid */
+@media (min-width: 1024px) {
+  .abs-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .vt-search-row {
+    flex-wrap: nowrap;
+  }
+}
+
+/* Mobile fixes */
+@media (max-width: 480px) {
+  .card {
+    padding: 12px 10px;
+    margin: 8px 8px 0;
+  }
+
+  .abt-tabbar {
+    padding: 0 2px;
+  }
+
+  .abt-tab {
+    padding: 11px 10px 10px;
+    font-size: 11px;
+  }
+
+  .vt-search-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .ftc-confirm-grid {
+    grid-template-columns: 1fr;
+  }
+
   .cd-fields {
     grid-template-columns: 1fr;
   }
@@ -3673,27 +3325,83 @@ select.inp {
   }
 
   .stat-val {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .abs-tbl,
+  .tbl-wrap table {
+    min-width: 420px;
+  }
+
+  .abs-tbl th,
+  .tbl-wrap th {
+    font-size: 9.5px;
+    padding: 5px 5px;
+  }
+
+  .abs-tbl td,
+  .tbl-wrap td {
+    font-size: 11px;
+    padding: 6px 5px;
+  }
+
+  .abt-issue-chip {
+    flex: 1 1 70px;
+    min-width: 70px;
+  }
+
+  .abt-issue-num {
+    font-size: 20px;
   }
 
   .matrix-tbl td,
   .matrix-tbl th {
     padding: 5px 6px;
+    font-size: 11px;
+  }
+
+  .matrix-tbl th:first-child,
+  .matrix-tbl td:first-child {
+    min-width: 80px;
+  }
+
+  .vt-section,
+  .vt-search-card {
+    margin-left: 8px;
+    margin-right: 8px;
   }
 
   .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin: 10px 8px 0;
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   LIGHT THEME overrides
-───────────────────────────────────────────────────────────────────────── */
-[data-theme="light"] .sb-hist-chip {
-  border-color: var(--gold-border);
-  background: var(--gold-dim);
+@media (max-width: 360px) {
+  .abt-tab {
+    padding: 11px 8px 10px;
+    font-size: 10.5px;
+    gap: 3px;
+  }
+
+  .abt-tab-icon {
+    font-size: 12px;
+  }
+
+  .stat-val {
+    font-size: 18px;
+  }
+
+  .abs-tbl,
+  .tbl-wrap table {
+    min-width: 380px;
+  }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDES
+═══════════════════════════════════════════════════════════════ */
 [data-theme="light"] .matrix-tbl th:first-child,
 [data-theme="light"] .matrix-tbl td:first-child {
   background: #FFFFFF;
@@ -3712,7 +3420,23 @@ select.inp {
 }
 
 [data-theme="light"] .cd-root {
-  box-shadow:
-    inset 4px 0 0 0 var(--cd-color, var(--gold)),
-    0 2px 12px rgba(0, 0, 0, 0.07);
+  border-left-color: var(--cd-color, var(--gold));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .abt-tabbar {
+  border-bottom-color: #E1E4E8;
+}
+
+[data-theme="light"] .et-table tbody tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .tbl-wrap tbody tr:hover td {
+  background: var(--gold-dim);
+}
+
+[data-theme="light"] .sb-hist-chip {
+  border-color: var(--gold-border);
+  background: var(--gold-dim);
 }

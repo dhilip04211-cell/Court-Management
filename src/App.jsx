@@ -17,15 +17,15 @@ const autoPages = import.meta.glob("./**/*.jsx", { eager: true });
 /* ─── MENU CONFIG ─── */
 const sections = [
   { title: "Head Clerk", route: "/headclerk/dashboard", icon: "👨‍💼", color: "#D4AF37" },
-  { title: "MC Section", route: "/mc/mc",               icon: "⚖️",  color: "#4CAF50" },
-  { title: "Examiner",   route: "/examiner/examiner",    icon: "📋",  color: "#2196F3" },
-  { title: "RC Section", route: "/rc/rc",                icon: "📁",  color: "#9C27B0" },
+  { title: "MC Section", route: "/mc/mc", icon: "⚖️", color: "#4CAF50" },
+  { title: "Examiner", route: "/examiner/examiner", icon: "📋", color: "#2196F3" },
+  { title: "RC Section", route: "/rc/rc", icon: "📁", color: "#9C27B0" },
 ];
 
-const SKIP_FILES = ["App.jsx","main.jsx","AuthContext.jsx","LoginPage.jsx","ProtectedRoute.jsx"];
+const SKIP_FILES = ["App.jsx", "main.jsx", "AuthContext.jsx", "LoginPage.jsx", "ProtectedRoute.jsx"];
 
 /* ─── THEME CONTEXT ─── */
-const ThemeContext = createContext({ theme: "dark", toggleTheme: () => {} });
+const ThemeContext = createContext({ theme: "dark", toggleTheme: () => { } });
 export const useTheme = () => useContext(ThemeContext);
 
 function ThemeProvider({ children }) {
@@ -46,8 +46,8 @@ function generateAutoRoutes() {
   return Object.entries(autoPages)
     .filter(([path]) => !SKIP_FILES.some(f => path.includes(f)))
     .map(([path, module]) => {
-      let routePath = path.replace("./","/").replace(/\.jsx$/,"").toLowerCase();
-      if (routePath.endsWith("/index")) routePath = routePath.replace("/index","");
+      let routePath = path.replace("./", "/").replace(/\.jsx$/, "").toLowerCase();
+      if (routePath.endsWith("/index")) routePath = routePath.replace("/index", "");
       if (usedRoutes.has(routePath)) return null;
       usedRoutes.add(routePath);
       const Component = module.default;
@@ -109,6 +109,9 @@ function Navbar({ mobileMenu, setMobileMenu }) {
   return (
     <>
       <nav className="navbar" data-theme={theme}>
+        {/* Mobile-only left spacer so logo centers */}
+        <div className="nav-mobile-spacer" />
+
         <Link to="/" className="logo" data-theme={theme}>⚖️ Court CMS</Link>
 
         <div className="nav-menu">
@@ -264,6 +267,9 @@ function GlobalStyles() {
         transition: background 0.3s ease, border-color 0.3s ease;
       }
 
+      /* Hidden on desktop, used for centering logo on mobile */
+      .nav-mobile-spacer { display: none; }
+
       .logo {
         font-size: clamp(17px, 4vw, 22px); font-weight: 800;
         color: var(--gold); white-space: nowrap; flex-shrink: 0;
@@ -401,16 +407,46 @@ function GlobalStyles() {
         .user-badge { display: none; }
         .logout-btn { display: none; }
         .user-avatar { display: none; }
-        .menu-btn { display: flex; align-items: center; justify-content: center; }
+
+        /* Mobile navbar: logo centered, right-side controls pinned */
+        .navbar {
+          position: relative;
+          justify-content: center;
+          padding: 10px 12px;
+        }
+        .nav-mobile-spacer {
+          display: block;
+          flex: 1;
+        }
+        .logo {
+          flex: 0 0 auto;
+          text-align: center;
+          font-size: 17px;
+        }
+        .nav-right {
+          flex: 1;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+
+        /* Theme button: icon only on mobile */
         .theme-toggle:not(.theme-toggle-mobile) .theme-label { display: none; }
-        .theme-toggle { padding: 7px 10px; }
+        .theme-toggle {
+          padding: 8px 10px;
+          min-width: 40px;
+          justify-content: center;
+        }
+
+        /* Menu button always visible */
+        .menu-btn { display: flex; align-items: center; justify-content: center; }
+
         .theme-toggle-mobile { width: 100%; justify-content: center; }
         .content { padding: 12px; }
         .card-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
         .dashboard-card { min-height: auto; padding: 16px; }
       }
       @media (max-width: 480px) {
-        .logo { font-size: 16px; }
+        .logo { font-size: 15px; }
         .content { padding: 8px; }
         .card-grid { grid-template-columns: 1fr; gap: 8px; }
         .card-icon { font-size: 28px; }
