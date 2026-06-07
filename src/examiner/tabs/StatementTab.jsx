@@ -283,9 +283,9 @@ export default function StatementTab({ db, smap }) {
   const totalPending = allFirs.length;
 
   /* ── Derived counts ── */
-  // Special rule: May 2026 prev pending is a fixed constant when generating June 2026 report.
-  // For July 2026 (prev = June 2026) compute:
-  //   Prev Pending = May 2026 FIR Pending + FIRs received in Jun 2026 - CNum where dreg in Jun 2026
+  // Special rule: May 2026 prev pending is a fixed constant (1590).
+  // For June 2026 onwards: prevPending = May 2026 constant + (total institutions from June to prev month) - (total disposals from June to prev month)
+  // Each month recalculates independently from the May constant — NOT chained.
   const MAY_2026_CONST = 1590;
   let prevPendingCount = 0;
   let prevPendingFormula = "";
@@ -296,32 +296,46 @@ export default function StatementTab({ db, smap }) {
     // Generating June 2026 report -> previous month (May 2026) is fixed
     prevPendingCount = MAY_2026_CONST;
     prevPendingFormula = "May 2026 FIR Pending (fixed constant)";
-  } else if (mm === 7 && yyyy === 2026) {
-    // Generating July 2026 report -> previous month is June 2026
-    // prevPending = May2026_pending (constant) + Institution in June2026 - Disposal in June2026
-    const prevMonth = prevMM; const prevYear = prevYYYY;
-
-    // Institution in prev month (June 2026): pending.dr in prev month + cnum.dreg in prev month (deduped)
+  } else if (yyyy === 2026 && mm >= 7) {
+    // July 2026 onwards: Use accumulated formula (NOT chained)
+    // prevPending = May2026_const + (all institutions June through prev month) - (all disposals June through prev month)
+    
+    // Institution from June to prev month
     const instFromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
-      return p && p.mm === prevMonth && p.yyyy === prevYear;
+      if (!p) return false;
+      // Date in June 2026 through previous month
+      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
+      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      return false;
     });
+    
     const instFromCnum = allCnum.filter(r => {
       const p = parseDateFlex(r.dreg);
-      return p && p.mm === prevMonth && p.yyyy === prevYear;
+      if (!p) return false;
+      // Date in June 2026 through previous month
+      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
+      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      return false;
     });
+    
     const seenInst = new Set(instFromPending.map(r => r.cr));
     const instExtra = instFromCnum.filter(r => r.fn && !seenInst.has(r.fn));
-    const instCount = instFromPending.length + instExtra.length;
+    const totalInstitution = instFromPending.length + instExtra.length;
 
-    // Disposal in prev month (June 2026): cnum entries where dreg in prev month
-    const dispCount = allCnum.filter(r => {
+    // Disposal from June to prev month
+    const totalDisposal = allCnum.filter(r => {
       const p = parseDateFlex(r.dreg);
-      return p && p.mm === prevMonth && p.yyyy === prevYear;
+      if (!p) return false;
+      // Date in June 2026 through previous month
+      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
+      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      return false;
     }).length;
 
-    prevPendingCount = MAY_2026_CONST + instCount - dispCount;
-    prevPendingFormula = "May 2026 FIR Pending + FIRs received in Jun 2026 - CNum where dreg in Jun 2026";
+    prevPendingCount = MAY_2026_CONST + totalInstitution - totalDisposal;
+    const monthRange = mm === 7 ? "Jun" : `Jun–${MON_SHORT[prevMM]}`;
+    prevPendingFormula = `May 2026 FIR Pending + Institutions (${monthRange} 2026) - Disposals (${monthRange} 2026)`;
   } else {
     prevPendingCount = prevPendingFirs.length;
     prevPendingFormula = `FIR Pending (dr ≤ ${prevEnd}) + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`;
