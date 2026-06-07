@@ -40,16 +40,8 @@ export default function LoginPage() {
             return;
         }
         
-        // Automatically request Sheets token for examiner section
-        // This prevents the "double login" issue
-        try {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Small delay to ensure token client is ready
-            // Token will be silently requested in the background
-            // No UI prompt should appear if consent was already given
-        } catch (err) {
-            console.error("Background token fetch error:", err);
-        }
-        
+        // Don't wait for token - let it request in background
+        // This prevents login screen from hanging
         setLoading(false);
         navigate(ROLE_ROUTES[result.user.role] || "/", { replace: true });
     };

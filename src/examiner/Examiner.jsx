@@ -147,6 +147,7 @@ export default function Examiner() {
     
     if (tok) {
       // Token already available — fetch directly
+      console.log("Token available, loading data...");
       setLoadPhase("loading");
       fetchAll(tok);
       
@@ -159,6 +160,7 @@ export default function Examiner() {
       }, 45000); // 45 second timeout
     } else {
       // Token missing — request it with proper fallbacks
+      console.log("No token available, requesting...");
       setProgress(0);
       setStepLabel("Requesting Google Sheets access…");
       setLoadPhase("loading");
@@ -168,6 +170,8 @@ export default function Examiner() {
         if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
         
         if (freshTok) {
+          console.log("Token received, loading data...");
+          setStepLabel("Loading data…");
           fetchAll(freshTok);
           
           /* Set timeout for data fetch */
@@ -178,15 +182,26 @@ export default function Examiner() {
             }
           }, 45000);
         } else {
-          // Token request failed or user rejected
-          setErrorMsg("Google Sheets access required. Please sign in again and grant permissions.");
+          // Token request failed or returned null
+          console.warn("Token request returned null");
+          setErrorMsg(
+            "Could not obtain Google Sheets access.\n\n" +
+            "This may be because:\n" +
+            "• You denied the permission request\n" +
+            "• Your internet connection is down\n" +
+            "• The Google service is temporarily unavailable\n\n" +
+            "Please click 'Retry' to try again, or sign out and sign back in."
+          );
           setLoadPhase("error");
         }
       }).catch((err) => {
         /* Clear timeout on error */
         if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
         console.error("Token request error:", err);
-        setErrorMsg("Authentication error. Please refresh the page and try again.");
+        setErrorMsg(
+          "Authentication error: " + (err?.message || "Could not obtain Google Sheets access") +
+          "\n\nPlease refresh the page and try again."
+        );
         setLoadPhase("error");
       });
     }
@@ -363,12 +378,17 @@ function LoadingScreen({ progress, stepLabel }) {
    ERROR SCREEN
 ═══════════════════════════════════════════════════════════ */
 function ErrorScreen({ msg, onRetry }) {
+  const lines = msg?.split('\n') || [];
   return (
     <div className="ex-load-screen">
       <div className="ex-load-card ex-load-card--error">
         <div className="ex-err-icon">⚠️</div>
         <div className="ex-load-title">Load Failed</div>
-        <div className="ex-load-sub" style={{ color: "var(--c-red)", marginTop: 4 }}>{msg}</div>
+        <div className="ex-load-sub" style={{ color: "var(--c-red)", marginTop: 4, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+          {lines.map((line, i) => (
+            <div key={i}>{line || ' '}</div>
+          ))}
+        </div>
         <button className="ex-retry-btn" onClick={onRetry}>↺ Retry</button>
       </div>
     </div>
