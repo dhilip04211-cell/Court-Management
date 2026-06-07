@@ -444,7 +444,7 @@ Please refresh the page and try again.`),p(`error`)})),()=>{b.current&&clearTime
     background: currentColor;
     flex-shrink: 0;
   }
-`;if(typeof document<`u`&&!document.getElementById(`examiner-css`)){let e=document.createElement(`style`);e.id=`examiner-css`,e.textContent=Ji,document.head.appendChild(e)}var Yi=s({AuthPrompt:()=>Xi});function Xi({onSignIn:e}){return(0,C.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,alignItems:`center`,gap:14,padding:`50px 20px`,textAlign:`center`},children:[(0,C.jsx)(`div`,{style:{fontSize:32},children:`🔐`}),(0,C.jsx)(`div`,{style:{fontSize:16,fontWeight:700,color:`var(--gold)`},children:`Authentication Required`}),(0,C.jsx)(`div`,{style:{fontSize:13,color:`var(--txt2)`,maxWidth:360},children:`Sign in with Google to access FIR records.`}),(0,C.jsx)(`button`,{className:`btn btn-g`,onClick:e,children:`Sign in with Google`})]})}var Zi=Object.assign({"./AuthContext.jsx":S,"./Ecourt/ECourt.jsx":j,"./LoginPage.jsx":sr,"./ProtectedRoute.jsx":ur,"./examiner/Examiner.jsx":Vi,"./examiner/components/AuthPrompt.jsx":Yi,"./examiner/components/CaseDetail.jsx":Yr,"./examiner/components/SectionBuilder.jsx":Hr,"./examiner/components/StationYearMatrix.jsx":ui,"./examiner/tabs/AbstractTab.jsx":ji,"./examiner/tabs/EntryTab.jsx":Wr,"./examiner/tabs/FTCTab.jsx":$r,"./examiner/tabs/StatementTab.jsx":fi,"./examiner/tabs/ViewerTab.jsx":Zr,"./headclerk/Dashboard.jsx":s({}),"./main.jsx":da,"./mc/Mc.jsx":s({}),"./rc/Rc.jsx":s({})}),Qi=[{title:`Head Clerk`,route:`/headclerk/dashboard`,icon:`👨‍💼`,color:`#D4AF37`},{title:`MC Section`,route:`/mc/mc`,icon:`⚖️`,color:`#4CAF50`},{title:`Examiner`,route:`/examiner/examiner`,icon:`📋`,color:`#2196F3`},{title:`RC Section`,route:`/rc/rc`,icon:`📁`,color:`#9C27B0`}],$i=[`App.jsx`,`main.jsx`,`AuthContext.jsx`,`LoginPage.jsx`,`ProtectedRoute.jsx`],ea=(0,v.createContext)({theme:`dark`,toggleTheme:()=>{}}),ta=()=>(0,v.useContext)(ea);function na({children:e}){let[t,n]=(0,v.useState)(()=>{let e=localStorage.getItem(`court_theme`);return e===`night`?`dark`:e===`day`?`light`:e||`dark`});return(0,C.jsx)(ea.Provider,{value:{theme:t,toggleTheme:()=>n(e=>{let t=e===`dark`?`light`:`dark`;return localStorage.setItem(`court_theme`,t),t})},children:e})}function ra(){let e=new Set;return Object.entries(Zi).filter(([e])=>!$i.some(t=>e.includes(t))).map(([t,n])=>{let r=t.replace(`./`,`/`).replace(/\.jsx$/,``).toLowerCase();if(r.endsWith(`/index`)&&(r=r.replace(`/index`,``)),e.has(r))return null;e.add(r);let i=n.default;return i?(0,C.jsx)(Xt,{path:r,element:(0,C.jsx)(dr,{children:(0,C.jsx)(i,{})})},r):null}).filter(Boolean)}function ia(){let{theme:e}=ta(),t=e===`dark`;return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`div`,{className:`hero`,children:[(0,C.jsx)(`h1`,{style:{color:t?`#f1f5f9`:`#1a1a18`},children:`⚖️ Court Management`}),(0,C.jsx)(`p`,{style:{color:t?`#94a3b8`:`#6b7280`},children:`Court Office Management Dashboard`})]}),(0,C.jsx)(`div`,{className:`card-grid`,children:Qi.map((t,n)=>(0,C.jsxs)(Un,{to:t.route,className:`dashboard-card`,"data-theme":e,children:[(0,C.jsx)(`div`,{className:`card-icon`,style:{color:t.color},children:t.icon}),(0,C.jsx)(`h2`,{children:t.title})]},n))})]})}function aa({mobile:e=!1}){let{theme:t,toggleTheme:n}=ta(),r=t===`dark`;return(0,C.jsxs)(`button`,{className:e?`theme-toggle-mobile`:`theme-toggle`,onClick:n,title:r?`Switch to Day Mode`:`Switch to Night Mode`,children:[(0,C.jsx)(`span`,{className:`theme-icon`,children:r?`☀️`:`🌙`}),(0,C.jsx)(`span`,{className:`theme-label`,children:r?`Day`:`Night`})]})}function oa({mobileMenu:e,setMobileMenu:t}){let{user:n,logout:r}=T(),{theme:i}=ta(),a=wt(),o=()=>{r(),a(`/login`,{replace:!0})};return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`nav`,{className:`navbar`,"data-theme":i,children:[(0,C.jsx)(Un,{to:`/`,className:`logo`,"data-theme":i,children:`⚖️ Court CMS`}),(0,C.jsx)(`div`,{className:`nav-menu`,children:Qi.map((e,t)=>(0,C.jsxs)(Un,{to:e.route,className:`nav-link`,"data-theme":i,children:[e.icon,` `,e.title]},t))}),(0,C.jsxs)(`div`,{className:`nav-right`,children:[(0,C.jsx)(aa,{}),n&&(0,C.jsxs)(C.Fragment,{children:[n.picture?(0,C.jsx)(`img`,{src:n.picture,alt:``,className:`user-avatar`}):(0,C.jsxs)(`span`,{className:`user-badge`,"data-theme":i,children:[n.icon,` `,n.label]}),(0,C.jsx)(`button`,{className:`logout-btn`,onClick:o,children:`Sign Out`})]}),(0,C.jsx)(`button`,{className:`menu-btn`,"data-theme":i,onClick:()=>t(e=>!e),"aria-label":`Toggle menu`,children:e?`✕`:`☰`})]})]}),e&&(0,C.jsxs)(`div`,{className:`mobile-menu`,"data-theme":i,children:[Qi.map((e,n)=>(0,C.jsxs)(Un,{to:e.route,onClick:()=>t(!1),children:[e.icon,` `,e.title]},n)),(0,C.jsx)(aa,{mobile:!0}),n&&(0,C.jsxs)(`button`,{className:`mobile-logout`,onClick:()=>{t(!1),o()},children:[`🚪 Sign Out (`,n.label,`)`]})]})]})}function sa({children:e}){let[t,n]=(0,v.useState)(!1),{theme:r}=ta();return(0,C.jsxs)(`div`,{className:`app`,"data-theme":r,children:[(0,C.jsx)(oa,{mobileMenu:t,setMobileMenu:n}),(0,C.jsx)(`div`,{className:`content`,children:e})]})}function ca(){return(0,C.jsxs)(Qt,{children:[(0,C.jsx)(Xt,{path:`/login`,element:(0,C.jsx)(cr,{})}),(0,C.jsx)(Xt,{path:`/`,element:(0,C.jsx)(dr,{children:(0,C.jsx)(sa,{children:(0,C.jsx)(ia,{})})})}),ra().map(e=>v.cloneElement(e,{element:(0,C.jsx)(sa,{children:e.props.element})})),(0,C.jsx)(Xt,{path:`*`,element:(0,C.jsx)(Yt,{to:`/`,replace:!0})})]})}function la(){return(0,C.jsx)(na,{children:(0,C.jsx)(A,{children:(0,C.jsxs)(Bn,{children:[(0,C.jsx)(ua,{}),(0,C.jsx)(ca,{})]})})})}function ua(){return(0,C.jsx)(`style`,{children:`
+`;if(typeof document<`u`&&!document.getElementById(`examiner-css`)){let e=document.createElement(`style`);e.id=`examiner-css`,e.textContent=Ji,document.head.appendChild(e)}var Yi=s({AuthPrompt:()=>Xi});function Xi({onSignIn:e}){return(0,C.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,alignItems:`center`,gap:14,padding:`50px 20px`,textAlign:`center`},children:[(0,C.jsx)(`div`,{style:{fontSize:32},children:`🔐`}),(0,C.jsx)(`div`,{style:{fontSize:16,fontWeight:700,color:`var(--gold)`},children:`Authentication Required`}),(0,C.jsx)(`div`,{style:{fontSize:13,color:`var(--txt2)`,maxWidth:360},children:`Sign in with Google to access FIR records.`}),(0,C.jsx)(`button`,{className:`btn btn-g`,onClick:e,children:`Sign in with Google`})]})}var Zi=Object.assign({"./AuthContext.jsx":S,"./Ecourt/ECourt.jsx":j,"./LoginPage.jsx":sr,"./ProtectedRoute.jsx":ur,"./examiner/Examiner.jsx":Vi,"./examiner/components/AuthPrompt.jsx":Yi,"./examiner/components/CaseDetail.jsx":Yr,"./examiner/components/SectionBuilder.jsx":Hr,"./examiner/components/StationYearMatrix.jsx":ui,"./examiner/tabs/AbstractTab.jsx":ji,"./examiner/tabs/EntryTab.jsx":Wr,"./examiner/tabs/FTCTab.jsx":$r,"./examiner/tabs/StatementTab.jsx":fi,"./examiner/tabs/ViewerTab.jsx":Zr,"./headclerk/Dashboard.jsx":s({}),"./main.jsx":da,"./mc/Mc.jsx":s({}),"./rc/Rc.jsx":s({})}),Qi=[{title:`Head Clerk`,route:`/headclerk/dashboard`,icon:`👨‍💼`,color:`#D4AF37`},{title:`MC Section`,route:`/mc/mc`,icon:`⚖️`,color:`#4CAF50`},{title:`Examiner`,route:`/examiner/examiner`,icon:`📋`,color:`#2196F3`},{title:`RC Section`,route:`/rc/rc`,icon:`📁`,color:`#9C27B0`}],$i=[`App.jsx`,`main.jsx`,`AuthContext.jsx`,`LoginPage.jsx`,`ProtectedRoute.jsx`],ea=(0,v.createContext)({theme:`dark`,toggleTheme:()=>{}}),ta=()=>(0,v.useContext)(ea);function na({children:e}){let[t,n]=(0,v.useState)(()=>{let e=localStorage.getItem(`court_theme`);return e===`night`?`dark`:e===`day`?`light`:e||`dark`});return(0,C.jsx)(ea.Provider,{value:{theme:t,toggleTheme:()=>n(e=>{let t=e===`dark`?`light`:`dark`;return localStorage.setItem(`court_theme`,t),t})},children:e})}function ra(){let e=new Set;return Object.entries(Zi).filter(([e])=>!$i.some(t=>e.includes(t))).map(([t,n])=>{let r=t.replace(`./`,`/`).replace(/\.jsx$/,``).toLowerCase();if(r.endsWith(`/index`)&&(r=r.replace(`/index`,``)),e.has(r))return null;e.add(r);let i=n.default;return i?(0,C.jsx)(Xt,{path:r,element:(0,C.jsx)(dr,{children:(0,C.jsx)(i,{})})},r):null}).filter(Boolean)}function ia(){let{theme:e}=ta(),t=e===`dark`;return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`div`,{className:`hero`,children:[(0,C.jsx)(`h1`,{style:{color:t?`#f1f5f9`:`#1a1a18`},children:`⚖️ Court Management`}),(0,C.jsx)(`p`,{style:{color:t?`#94a3b8`:`#6b7280`},children:`Court Office Management Dashboard`})]}),(0,C.jsx)(`div`,{className:`card-grid`,children:Qi.map((t,n)=>(0,C.jsxs)(Un,{to:t.route,className:`dashboard-card`,"data-theme":e,children:[(0,C.jsx)(`div`,{className:`card-icon`,style:{color:t.color},children:t.icon}),(0,C.jsx)(`h2`,{children:t.title})]},n))})]})}function aa({mobile:e=!1}){let{theme:t,toggleTheme:n}=ta(),r=t===`dark`;return(0,C.jsxs)(`button`,{className:e?`theme-toggle-mobile`:`theme-toggle`,onClick:n,title:r?`Switch to Day Mode`:`Switch to Night Mode`,children:[(0,C.jsx)(`span`,{className:`theme-icon`,children:r?`☀️`:`🌙`}),(0,C.jsx)(`span`,{className:`theme-label`,children:r?`Day`:`Night`})]})}function oa({mobileMenu:e,setMobileMenu:t}){let{user:n,logout:r}=T(),{theme:i}=ta(),a=wt(),o=()=>{r(),a(`/login`,{replace:!0})};return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`nav`,{className:`navbar`,"data-theme":i,children:[(0,C.jsx)(`div`,{className:`nav-mobile-spacer`}),(0,C.jsx)(Un,{to:`/`,className:`logo`,"data-theme":i,children:`⚖️ Court CMS`}),(0,C.jsx)(`div`,{className:`nav-menu`,children:Qi.map((e,t)=>(0,C.jsxs)(Un,{to:e.route,className:`nav-link`,"data-theme":i,children:[e.icon,` `,e.title]},t))}),(0,C.jsxs)(`div`,{className:`nav-right`,children:[(0,C.jsx)(aa,{}),n&&(0,C.jsxs)(C.Fragment,{children:[n.picture?(0,C.jsx)(`img`,{src:n.picture,alt:``,className:`user-avatar`}):(0,C.jsxs)(`span`,{className:`user-badge`,"data-theme":i,children:[n.icon,` `,n.label]}),(0,C.jsx)(`button`,{className:`logout-btn`,onClick:o,children:`Sign Out`})]}),(0,C.jsx)(`button`,{className:`menu-btn`,"data-theme":i,onClick:()=>t(e=>!e),"aria-label":`Toggle menu`,children:e?`✕`:`☰`})]})]}),e&&(0,C.jsxs)(`div`,{className:`mobile-menu`,"data-theme":i,children:[Qi.map((e,n)=>(0,C.jsxs)(Un,{to:e.route,onClick:()=>t(!1),children:[e.icon,` `,e.title]},n)),(0,C.jsx)(aa,{mobile:!0}),n&&(0,C.jsxs)(`button`,{className:`mobile-logout`,onClick:()=>{t(!1),o()},children:[`🚪 Sign Out (`,n.label,`)`]})]})]})}function sa({children:e}){let[t,n]=(0,v.useState)(!1),{theme:r}=ta();return(0,C.jsxs)(`div`,{className:`app`,"data-theme":r,children:[(0,C.jsx)(oa,{mobileMenu:t,setMobileMenu:n}),(0,C.jsx)(`div`,{className:`content`,children:e})]})}function ca(){return(0,C.jsxs)(Qt,{children:[(0,C.jsx)(Xt,{path:`/login`,element:(0,C.jsx)(cr,{})}),(0,C.jsx)(Xt,{path:`/`,element:(0,C.jsx)(dr,{children:(0,C.jsx)(sa,{children:(0,C.jsx)(ia,{})})})}),ra().map(e=>v.cloneElement(e,{element:(0,C.jsx)(sa,{children:e.props.element})})),(0,C.jsx)(Xt,{path:`*`,element:(0,C.jsx)(Yt,{to:`/`,replace:!0})})]})}function la(){return(0,C.jsx)(na,{children:(0,C.jsx)(A,{children:(0,C.jsxs)(Bn,{children:[(0,C.jsx)(ua,{}),(0,C.jsx)(ca,{})]})})})}function ua(){return(0,C.jsx)(`style`,{children:`
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 
@@ -506,6 +506,9 @@ Please refresh the page and try again.`),p(`error`)})),()=>{b.current&&clearTime
         display: flex; align-items: center; gap: 12px; flex-shrink: 0;
         transition: background 0.3s ease, border-color 0.3s ease;
       }
+
+      /* Hidden on desktop, used for centering logo on mobile */
+      .nav-mobile-spacer { display: none; }
 
       .logo {
         font-size: clamp(17px, 4vw, 22px); font-weight: 800;
@@ -644,16 +647,46 @@ Please refresh the page and try again.`),p(`error`)})),()=>{b.current&&clearTime
         .user-badge { display: none; }
         .logout-btn { display: none; }
         .user-avatar { display: none; }
-        .menu-btn { display: flex; align-items: center; justify-content: center; }
+
+        /* Mobile navbar: logo centered, right-side controls pinned */
+        .navbar {
+          position: relative;
+          justify-content: center;
+          padding: 10px 12px;
+        }
+        .nav-mobile-spacer {
+          display: block;
+          flex: 1;
+        }
+        .logo {
+          flex: 0 0 auto;
+          text-align: center;
+          font-size: 17px;
+        }
+        .nav-right {
+          flex: 1;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+
+        /* Theme button: icon only on mobile */
         .theme-toggle:not(.theme-toggle-mobile) .theme-label { display: none; }
-        .theme-toggle { padding: 7px 10px; }
+        .theme-toggle {
+          padding: 8px 10px;
+          min-width: 40px;
+          justify-content: center;
+        }
+
+        /* Menu button always visible */
+        .menu-btn { display: flex; align-items: center; justify-content: center; }
+
         .theme-toggle-mobile { width: 100%; justify-content: center; }
         .content { padding: 12px; }
         .card-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
         .dashboard-card { min-height: auto; padding: 16px; }
       }
       @media (max-width: 480px) {
-        .logo { font-size: 16px; }
+        .logo { font-size: 15px; }
         .content { padding: 8px; }
         .card-grid { grid-template-columns: 1fr; gap: 8px; }
         .card-icon { font-size: 28px; }
