@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -108,7 +108,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   /* Call this to get/refresh the Sheets access token */
-  const requestSheetsToken = () => {
+  const requestSheetsToken = useCallback(function requestSheetsToken() {
     return new Promise((resolve) => {
       /* If token already in storage, return it immediately */
       const storedTok = sessionStorage.getItem("court_cms_tok");
@@ -198,7 +198,16 @@ export function AuthProvider({ children }) {
         resolve(null);
       }
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!gsiReady || !user || tok) return;
+    requestSheetsToken().then((accessToken) => {
+      if (accessToken) {
+        console.log("Background Sheets token obtained for existing session");
+      }
+    });
+  }, [gsiReady, user, tok, requestSheetsToken]);
 
   const loginWithGoogle = (credentialResponse) => {
     const payload = decodeJwt(credentialResponse.credential);
@@ -228,10 +237,16 @@ export function AuthProvider({ children }) {
 
     sessionStorage.setItem("court_cms_user", JSON.stringify(userData));
     setUser(userData);
-    
-    /* Background token request is optional - will happen when Examiner loads */
-    /* No need to block or require it at login time */
-    
+
+    /* Request Sheets token immediately after successful login */
+    requestSheetsToken().then((accessToken) => {
+      if (accessToken) {
+        console.log("Background Sheets token obtained after login");
+      } else {
+        console.warn("Background Sheets token unavailable after login");
+      }
+    });
+
     return { ok: true, user: userData };
   };
 
