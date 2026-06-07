@@ -229,19 +229,32 @@ export default function Examiner() {
     }
 
     try {
+      console.log("Starting data fetch with token:", token?.substring(0, 20) + "...");
+      
       await advance(0); // Connecting…
+      console.log("Step 0 complete: Connected");
+      
       const loadedSmap = await (async () => {
         await advance(1); // Loading stations…
-        return loadStationsFromSheet(token);
+        console.log("Loading stations from sheet...");
+        const result = await loadStationsFromSheet(token);
+        console.log("Stations loaded:", result?.length || 0, "stations");
+        return result;
       })();
       const finalSmap = loadedSmap?.length ? loadedSmap : SMAP_DEFAULT;
       setSmap(finalSmap);
+      console.log("Using", finalSmap.length, "stations for this query");
 
       await advance(2); // Fetching FIR records…
+      console.log("Step 2 complete: FIR records ready");
+      
       await advance(3); // Fetching case data…
+      console.log("Loading all data...");
       const data = await loadAllData(token, finalSmap);
+      console.log("Data loaded successfully. FIRs:", data.fir ? Object.keys(data.fir).length : 0, "stations");
 
       await advance(4); // Building index…
+      console.log("Step 4 complete: Index built");
 
       /* finish bar to 100 */
       await new Promise(res => animateTo(100, res));
@@ -249,8 +262,10 @@ export default function Examiner() {
 
       setDb(data);
       setLoadPhase("done");
+      console.log("✅ Data loading complete!");
     } catch (e) {
-      console.error("Load error:", e);
+      console.error("❌ Load error:", e);
+      console.error("Error stack:", e?.stack);
       setErrorMsg(
         e?.message
           ? `Failed to load data: ${e.message}`

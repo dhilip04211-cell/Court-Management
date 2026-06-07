@@ -121,13 +121,26 @@ export async function getSheetIdByName(tok, sid, tabName) {
 }
 
 export async function loadStationsFromSheet(tok) {
-  const meta = await getSheetMeta(tok, SID.fir);
-  if (!meta) return null;
-  const SKIP = /^(sheet1|sheet2|sheet3|sheet4|sheet5|sheet6)$/i;
-  return (meta.sheets || [])
-    .map(s => s.properties.title)
-    .filter(t => t && !SKIP.test(t.trim()))
-    .map(t => ({ sh: t, lb: t }));
+  try {
+    if (!tok) throw new Error("No token provided");
+    if (!SID.fir) throw new Error("FIR Sheet ID not configured - check environment variables");
+    
+    console.log("Loading sheet metadata from FIR sheet:", SID.fir?.substring(0, 20) + "...");
+    const meta = await getSheetMeta(tok, SID.fir);
+    if (!meta) {
+      throw new Error("Failed to get sheet metadata - check if Sheets API is enabled and you have read permissions");
+    }
+    const SKIP = /^(sheet1|sheet2|sheet3|sheet4|sheet5|sheet6)$/i;
+    const stations = (meta.sheets || [])
+      .map(s => s.properties.title)
+      .filter(t => t && !SKIP.test(t.trim()))
+      .map(t => ({ sh: t, lb: t }));
+    console.log("Loaded", stations.length, "station sheets");
+    return stations;
+  } catch (e) {
+    console.error("loadStationsFromSheet error:", e);
+    throw e;
+  }
 }
 
 export async function sheetsDeleteRow(tok, sid, tabName, oneBasedRow) {
@@ -207,61 +220,94 @@ export async function ensureCasenumHeaders(tok) {
 }
 
 export async function loadAllData(tok, smap) {
-  const fir = {};
-  for (const s of smap) {
-    fir[s.sh] = await loadFIRSheet(tok, s.sh);
+  try {
+    console.log("loadAllData: Starting with", smap?.length, "stations");
+    
+    // Validate sheet IDs
+    if (!SID.fir) throw new Error("VITE_FIR_SHEET_ID not set");
+    if (!SID.pending) throw new Error("VITE_PENDING_SHEET_ID not set");
+    if (!SID.disposal) throw new Error("VITE_DISPOSAL_SHEET_ID not set");
+    if (!SID.nonval) throw new Error("VITE_NONVAL_SHEET_ID not set");
+    if (!SID.casenum) throw new Error("VITE_CASENUM_SHEET_ID not set");
+    
+    console.log("All sheet IDs configured ✓");
+    
+    const fir = {};
+    console.log("Loading FIR data from", smap.length, "stations...");
+    for (const s of smap) {
+      try {
+        console.log("  Loading station:", s.sh);
+        fir[s.sh] = await loadFIRSheet(tok, s.sh);
+        console.log("    Loaded", fir[s.sh].length, "FIRs");
+      } catch (e) {
+        console.error("    Error loading station", s.sh, ":", e.message);
+        throw e;
+      }
+    }
+
+    console.log("Loading pending, disposal, nonval, casenum sheets...");
+    const [pr, dr2, nr, cnr] = await Promise.all([
+      sheetsGet(tok, SID.pending,  "Sheet1!A:L").catch(e => { console.error("Error loading pending:", e); throw e; }),
+      sheetsGet(tok, SID.disposal, "Sheet1!A:L").catch(e => { console.error("Error loading disposal:", e); throw e; }),
+      sheetsGet(tok, SID.nonval,   "Sheet1!A:G").catch(e => { console.error("Error loading nonval:", e); throw e; }),
+      sheetsGet(tok, SID.casenum,  "Sheet1!A:M").catch(e => { console.error("Error loading casenum:", e); throw e; }),
+    ]);
+    
+    console.log("Sheets loaded. Processing data...");
+    console.log("  Pending rows:", pr.length);
+    console.log("  Disposal rows:", dr2.length);
+    console.log("  Nonval rows:", nr.length);
+    console.log("  Casenum rows:", cnr.length);
+
+    // ── FIX: normalize station names in pending/disposal/casenum ──
+    const pend = pr.slice(1)
+      .map((r, i) => ({
+        sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
+        dreg: r[4]||"", nxt: r[5]||"", pur: r[6]||"", sec: r[7]||"",
+        // normalize station → canonical label
+        sta: normalizeStation(r[8]||""),
+        fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
+        ri: i + 2,
+      }))
+      .filter(r => r.fn || r.cn);
+
+    const disp = dr2.slice(1)
+      .map((r, i) => ({
+        sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
+        dreg: r[4]||"", ddec: r[5]||"", dnat: r[6]||"", sec: r[7]||"",
+        sta: normalizeStation(r[8]||""),
+        fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
+        ri: i + 2,
+      }))
+      .filter(r => r.fn || r.cn);
+
+    const nv = nr.slice(1)
+      .map((r, i) => ({
+        sno: r[0]||"", cn: r[1]||"", fn: r[2]||"", rp: r[3]||"",
+        sta: normalizeStation(r[4]||""),
+        desc: r[5]||"", rem: r[6]||"",
+        ri: i + 2,
+      }))
+      .filter(r => r.fn || r.cn);
+
+    const cnum = cnr.slice(1)
+      .map((r, i) => ({
+        fn: r[0]||"",
+        sta: normalizeStation(r[1]||""),
+        sec: r[2]||"", dr: r[3]||"",
+        cn: r[4]||"", pt: r[5]||"", adv: r[6]||"", dreg: r[7]||"",
+        nxt: r[8]||"", type: r[9]||"", sec2: r[10]||"", nat: r[11]||"", des: r[12]||"",
+        ri: i + 2,
+      }))
+      .filter(r => r.fn || r.cn);
+
+    console.log("Data processing complete. Pending:", pend.length, "Disposal:", disp.length, "Casenum:", cnum.length);
+    
+    return { fir, pend, disp, nv, cnum };
+  } catch (e) {
+    console.error("❌ loadAllData error:", e);
+    throw e;
   }
-
-  const [pr, dr2, nr, cnr] = await Promise.all([
-    sheetsGet(tok, SID.pending,  "Sheet1!A:L"),
-    sheetsGet(tok, SID.disposal, "Sheet1!A:L"),
-    sheetsGet(tok, SID.nonval,   "Sheet1!A:G"),
-    sheetsGet(tok, SID.casenum,  "Sheet1!A:M"),
-  ]);
-
-  // ── FIX: normalize station names in pending/disposal/casenum ──
-  const pend = pr.slice(1)
-    .map((r, i) => ({
-      sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
-      dreg: r[4]||"", nxt: r[5]||"", pur: r[6]||"", sec: r[7]||"",
-      // normalize station → canonical label
-      sta: normalizeStation(r[8]||""),
-      fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
-      ri: i + 2,
-    }))
-    .filter(r => r.fn || r.cn);
-
-  const disp = dr2.slice(1)
-    .map((r, i) => ({
-      sl: r[0]||"", cn: r[1]||"", pt: r[2]||"", adv: r[3]||"",
-      dreg: r[4]||"", ddec: r[5]||"", dnat: r[6]||"", sec: r[7]||"",
-      sta: normalizeStation(r[8]||""),
-      fn: r[9]||"", nat: r[10]||"", des: r[11]||"",
-      ri: i + 2,
-    }))
-    .filter(r => r.fn || r.cn);
-
-  const nv = nr.slice(1)
-    .map((r, i) => ({
-      sno: r[0]||"", cn: r[1]||"", fn: r[2]||"", rp: r[3]||"",
-      sta: normalizeStation(r[4]||""),
-      desc: r[5]||"", rem: r[6]||"",
-      ri: i + 2,
-    }))
-    .filter(r => r.fn || r.cn);
-
-  const cnum = cnr.slice(1)
-    .map((r, i) => ({
-      fn: r[0]||"",
-      sta: normalizeStation(r[1]||""),
-      sec: r[2]||"", dr: r[3]||"",
-      cn: r[4]||"", pt: r[5]||"", adv: r[6]||"", dreg: r[7]||"",
-      nxt: r[8]||"", type: r[9]||"", sec2: r[10]||"", nat: r[11]||"", des: r[12]||"",
-      ri: i + 2,
-    }))
-    .filter(r => r.fn || r.cn);
-
-  return { fir, pend, disp, nv, cnum };
 }
 
 export async function insertFIRSorted(tok, tabName, newCr, newSec, newDr) {
