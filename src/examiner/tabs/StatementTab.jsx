@@ -54,7 +54,7 @@ function firYear(cr) {
 }
 
 /* ── Year / Month minimum boundaries ── */
-const MIN_YEAR  = 2026;
+const MIN_YEAR = 2026;
 const MIN_MONTH = 6; // June
 
 /* Build year options — only MIN_YEAR onwards */
@@ -155,26 +155,26 @@ function exportWord(disposalAOA, pendingAOA, monthLabel, districtName, courtName
 export default function StatementTab({ db, smap }) {
   const SMAP = smap || EMPTY_ARR;
   const COURT_NAME = "Judicial Magistrate No.I, Jayankondam";
-  const DISTRICT   = "Ariyalur";
+  const DISTRICT = "Ariyalur";
 
   /* ── Default month/year ── */
   const now = new Date();
-  const defaultYear  = Math.max(now.getFullYear(), MIN_YEAR);
+  const defaultYear = Math.max(now.getFullYear(), MIN_YEAR);
   const defaultMonth = (defaultYear === MIN_YEAR && now.getMonth() + 1 < MIN_MONTH)
     ? pad2(MIN_MONTH)
     : pad2(now.getMonth() + 1);
 
   const [selMonth, setSelMonth] = useState(defaultMonth);
-  const [selYear,  setSelYear]  = useState(String(defaultYear));
+  const [selYear, setSelYear] = useState(String(defaultYear));
   const [submitted, setSubmitted] = useState(false);
-  const [filterYr,  setFilterYr]  = useState(null);
+  const [filterYr, setFilterYr] = useState(null);
 
-  const mm   = parseInt(selMonth, 10);
-  const yyyy = parseInt(selYear,  10);
+  const mm = parseInt(selMonth, 10);
+  const yyyy = parseInt(selYear, 10);
 
   /* ── Date boundary numerics ── */
-  const prevMM    = mm === 1 ? 12 : mm - 1;
-  const prevYYYY  = mm === 1 ? yyyy - 1 : yyyy;
+  const prevMM = mm === 1 ? 12 : mm - 1;
+  const prevYYYY = mm === 1 ? yyyy - 1 : yyyy;
   const prevEndDD = lastDay(prevYYYY, prevMM);
   const thisEndDD = lastDay(yyyy, mm);
 
@@ -221,18 +221,18 @@ export default function StatementTab({ db, smap }) {
     const isMay2026 = prevMM === 5 && prevYYYY === 2026;
 
     const fromCnum = allCnum.filter(r => {
-    if (isMay2026) {
-      // date of registration in June 2026 only
-      const pDreg = parseDateFlex(r.dreg);
-      const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
+      if (isMay2026) {
+        // date of registration in June 2026 only
+        const pDreg = parseDateFlex(r.dreg);
+        const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
 
-      return dregOk;
-    } else {
-      // All other months: dreg within that specific prev month only
-      const p = parseDateFlex(r.dreg);
-      return p && p.mm === prevMM && p.yyyy === prevYYYY;
-    }
-  });
+        return dregOk;
+      } else {
+        // All other months: dreg within that specific prev month only
+        const p = parseDateFlex(r.dreg);
+        return p && p.mm === prevMM && p.yyyy === prevYYYY;
+      }
+    });
     /* Step 3 — Deduplicate: skip cnum entries already in pending list */
     const seen = new Set(fromPending.map(r => r.cr));
     const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
@@ -301,7 +301,7 @@ export default function StatementTab({ db, smap }) {
     // prevPending = May2026_const + (all institutions June through prev month) - (all disposals June through prev month)
     // Institution = FIR Pending DR received + CNUM DR (case number registration)
     // Disposal = CNUM Dereg (dereg date)
-    
+
     // Count 1: FIR Pending with dr (date received) from June to prev month
     const instFromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
@@ -311,7 +311,7 @@ export default function StatementTab({ db, smap }) {
       if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
       return false;
     });
-    
+
     // Count 2: CNUM with dr (date received) from June to prev month — NOT dreg!
     const instFromCnum = allCnum.filter(r => {
       const p = parseDateFlex(r.dr);  // ✓ FIXED: was r.dreg, now r.dr (date received)
@@ -321,7 +321,7 @@ export default function StatementTab({ db, smap }) {
       if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
       return false;
     });
-    
+
     // Total institution = sum of both (no deduplication needed)
     const totalInstitution = instFromPending.length + instFromCnum.length;
 
@@ -371,7 +371,7 @@ export default function StatementTab({ db, smap }) {
   function buildHeader() {
     const prevMonthEndLabel = `FIR Pending\nAs on\n${prevEnd}`;
     const thisMonthEndLabel = `No. of FIR's\nPending as on\n${thisEnd}`;
-    const currYrLabel       = `${yyyy}\n(As on\n${thisEnd})`;
+    const currYrLabel = `${yyyy}\n(As on\n${thisEnd})`;
 
     const fixed = [
       "Name of the\nCourt",
@@ -390,7 +390,7 @@ export default function StatementTab({ db, smap }) {
   function buildDisposalRow() {
     const currYrDisposal = disposalByYear[String(yyyy)] || "-";
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
-    const restVals  = restYears.map(y => disposalByYear[y] || "-");
+    const restVals = restYears.map(y => disposalByYear[y] || "-");
     return [
       COURT_NAME,
       prevPendingCount,
@@ -406,7 +406,7 @@ export default function StatementTab({ db, smap }) {
   function buildPendingRow() {
     const currYrPending = pendingByYear[String(yyyy)] || "-";
     const restYears = allYears.filter(y => String(y) !== String(yyyy));
-    const restVals  = restYears.map(y => pendingByYear[y] || "-");
+    const restVals = restYears.map(y => pendingByYear[y] || "-");
     return [
       COURT_NAME,
       prevPendingCount,
@@ -421,21 +421,21 @@ export default function StatementTab({ db, smap }) {
   const disposalAOA = useMemo(() => {
     if (!submitted) return [];
     return [buildHeader(), buildDisposalRow()];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, allYears, disposalByYear, institutionFirs, disposalCases,
-      totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
+    totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
 
   const pendingAOA = useMemo(() => {
     if (!submitted) return [];
     return [buildHeader(), buildPendingRow()];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, allYears, pendingByYear, institutionFirs, disposalCases,
-      totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
+    totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
 
   /* ── Month label strings ── */
-  const monthLabel     = `${ordinal(thisEndDD)}.${pad2(mm)}.${yyyy}`;
+  const monthLabel = `${ordinal(thisEndDD)}.${pad2(mm)}.${yyyy}`;
   const monthLabelFull = `${MON_NAMES[mm]} ${yyyy}`;
-  const fileLabel      = `${pad2(mm)}_${yyyy}`;
+  const fileLabel = `${pad2(mm)}_${yyyy}`;
 
   /* ── Institution list sorted ── */
   const institutionSorted = useMemo(() => {
@@ -476,7 +476,7 @@ export default function StatementTab({ db, smap }) {
   function handleExportExcel() {
     exportExcel(`FIR_Statement_${fileLabel}.xlsx`, [
       { name: "Disposal Statement", aoa: disposalAOA },
-      { name: "Pending Statement",  aoa: pendingAOA  },
+      { name: "Pending Statement", aoa: pendingAOA },
       {
         name: "FIR Institution",
         aoa: [
@@ -701,8 +701,8 @@ export default function StatementTab({ db, smap }) {
                   <tbody>
                     {institutionSorted.map((r, i) => {
                       const firNo = r.cr || r.fn || "—";
-                      const yr    = r.firYr || firYear(r.fn) || "?";
-                      const sta   = r.stLb || r.sta || "—";
+                      const yr = r.firYr || firYear(r.fn) || "?";
+                      const sta = r.stLb || r.sta || "—";
                       return (
                         <tr key={i}>
                           <td className="mono" style={{ color: "var(--txt3)" }}>{i + 1}</td>
