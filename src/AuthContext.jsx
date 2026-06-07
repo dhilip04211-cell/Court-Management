@@ -59,6 +59,7 @@ export function AuthProvider({ children }) {
   const [tok, setTok] = useState(() => sessionStorage.getItem("court_cms_tok") || null);
   const tokenClientRef = useRef(null);
   const tokenCallbackRef = useRef(null);
+  const tokenRequestingRef = useRef(false);
 
   useEffect(() => {
     loadGsiScript().then(() => {
@@ -70,12 +71,14 @@ export function AuthProvider({ children }) {
         callback: (tokenResponse) => {
           if (tokenResponse.error) {
             console.error("Token error:", tokenResponse.error);
+            tokenRequestingRef.current = false;
             tokenCallbackRef.current?.(null);
             return;
           }
           const accessToken = tokenResponse.access_token;
           sessionStorage.setItem("court_cms_tok", accessToken);
           setTok(accessToken);
+          tokenRequestingRef.current = false;
 
           /* Auto-clear token when it expires (default 1 hour) */
           const expiresIn = (tokenResponse.expires_in || 3600) * 1000;
@@ -93,9 +96,26 @@ export function AuthProvider({ children }) {
   /* Call this to get/refresh the Sheets access token */
   const requestSheetsToken = () => {
     return new Promise((resolve) => {
-      if (!tokenClientRef.current) return resolve(null);
-      
+      if (!tokenClientRef.current) {
+        console.warn("Token client not ready");
+        return resolve(null);
+      }
+
+      /* If token already in storage, return it immediately */
+      const storedTok = sessionStorage.getItem("court_cms_tok");
+      if (storedTok) {
+        return resolve(storedTok);
+      }
+
+      /* Prevent duplicate requests */
+      if (tokenRequestingRef.current) {
+        console.log("Token request already in progress");
+        return resolve(null);
+      }
+
+      tokenRequestingRef.current = true;
       let resolved = false;
+      
       const handleTokenResponse = (token) => {
         if (!resolved) {
           resolved = true;
@@ -106,14 +126,48 @@ export function AuthProvider({ children }) {
       tokenCallbackRef.current = handleTokenResponse;
       
       /* First try silent request (prompt: "none") - no UI shown */
-      tokenClientRef.current.requestAccessToken({ prompt: "none" });
+      try {
+        tokenClientRef.current.requestAccessToken({ prompt: "none" });
+      } catch (err) {
+        console.warn("Silent token request failed:", err);
+        tokenRequestingRef.current = false;
+        resolved = true;
+        resolve(null);
+      }
       
-      /* If silent request fails, fallback to prompted request after 2 seconds */
-      setTimeout(() => {
+      /* If silent request fails/times out, try with user prompt after 1.5 seconds */
+      const timeoutId = setTimeout(() => {
         if (!resolved) {
-          tokenClientRef.current.requestAccessToken({ prompt: "" });
+          try {
+            tokenClientRef.current.requestAccessToken({ prompt: "" });
+          } catch (err) {
+            console.warn("Prompted token request failed:", err);
+            if (!resolved) {
+              resolved = true;
+              resolve(null);
+            }
+          }
         }
-      }, 2000);
+      }, 1500);
+
+      /* Fallback timeout: if nothing resolves after 8 seconds, give up */
+      const maxTimeoutId = setTimeout(() => {
+        clearTimeout(timeoutId);
+        tokenRequestingRef.current = false;
+        if (!resolved) {
+          resolved = true;
+          resolve(null);
+        }
+      }, 8000);
+
+      /* Store cleanup function in callback */
+      const originalCallback = tokenCallbackRef.current;
+      tokenCallbackRef.current = (token) => {
+        clearTimeout(timeoutId);
+        clearTimeout(maxTimeoutId);
+        tokenRequestingRef.current = false;
+        originalCallback?.(token);
+      };
     });
   };
 
@@ -146,22 +200,14 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem("court_cms_user", JSON.stringify(userData));
     setUser(userData);
     
-    /* ─ Auto-request Sheets token to prevent double login ─ */
-    if (tokenClientRef.current && !tok) {
-      setTimeout(() => {
-        tokenCallbackRef.current = (token) => {
-          if (token) {
-            sessionStorage.setItem("court_cms_tok", token);
-            setTok(token);
-            const expiresIn = 3600 * 1000; // 1 hour default
-            setTimeout(() => {
-              sessionStorage.removeItem("court_cms_tok");
-              setTok(null);
-            }, expiresIn);
-          }
-        };
-        tokenClientRef.current.requestAccessToken({ prompt: "none" });
-      }, 100);
+    /* ─ Auto-request Sheets token in background to prevent double login ─ */
+    /* This happens silently without user interruption */
+    if (tokenClientRef.current && !tok && !tokenRequestingRef.current) {
+      /* Schedule token request for next tick to avoid blocking */
+      requestSheetsToken().catch(err => {
+        console.warn("Background token fetch failed:", err);
+        /* Non-critical failure - user can still use the app */
+      });
     }
     
     return { ok: true, user: userData };
@@ -178,6 +224,7 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem("court_cms_tok");
     setUser(null);
     setTok(null);
+    tokenRequestingRef.current = false;
   };
 
   return (

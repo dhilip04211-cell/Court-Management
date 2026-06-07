@@ -90,6 +90,29 @@ export default function Examiner() {
   const [snack, setSnack] = useState(null);
   const snackTimer = useRef(null);
 
+  /* Safety timeout to prevent infinite loading */
+  const loadTimeoutRef = useRef(null);
+
+  /* Cleanup timeout when loading completes or on unmount */
+  useEffect(() => {
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+      if (snackTimer.current) {
+        clearTimeout(snackTimer.current);
+      }
+    };
+  }, []);
+
+  /* Clear timeout when data loading completes */
+  useEffect(() => {
+    if (loadPhase === "done" && loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+  }, [loadPhase]);
+
   function showSnack(msg, type = "info") {
     if (snackTimer.current) clearTimeout(snackTimer.current);
     setSnack({ msg, type });
@@ -118,25 +141,60 @@ export default function Examiner() {
   /* ── Load data ──────────────────────────────────────────── */
   useEffect(() => {
     if (loadPhase !== "idle") return;
+    
+    /* Clear any existing timeout */
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    
     if (tok) {
       // Token already available — fetch directly
+      setLoadPhase("loading");
       fetchAll(tok);
+      
+      /* Safety timeout: if loading takes too long, show error */
+      loadTimeoutRef.current = setTimeout(() => {
+        if (loadPhase === "loading") {
+          setErrorMsg("Data loading timeout. Please check your network and try again.");
+          setLoadPhase("error");
+        }
+      }, 45000); // 45 second timeout
     } else {
-      // Token missing or expired — silently request a new one first
+      // Token missing — request it with proper fallbacks
+      setProgress(0);
+      setStepLabel("Requesting Google Sheets access…");
+      setLoadPhase("loading");
+      
       requestSheetsToken().then((freshTok) => {
+        /* Clear timeout if token was obtained */
+        if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+        
         if (freshTok) {
           fetchAll(freshTok);
+          
+          /* Set timeout for data fetch */
+          loadTimeoutRef.current = setTimeout(() => {
+            if (loadPhase === "loading") {
+              setErrorMsg("Data loading timeout. Please check your network and try again.");
+              setLoadPhase("error");
+            }
+          }, 45000);
         } else {
-          // If we can't get a token, still try to proceed
-          // The Sheets calls will fail and show an error message
-          // but at least the user won't see a double login prompt
-          console.warn("Could not obtain Sheets token - attempting to proceed anyway");
-          setErrorMsg("Note: Some features may be limited without Google Sheets access.");
-          // Don't set error phase - let user retry instead
-          setLoadPhase("idle");
+          // Token request failed or user rejected
+          setErrorMsg("Google Sheets access required. Please sign in again and grant permissions.");
+          setLoadPhase("error");
         }
+      }).catch((err) => {
+        /* Clear timeout on error */
+        if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+        console.error("Token request error:", err);
+        setErrorMsg("Authentication error. Please refresh the page and try again.");
+        setLoadPhase("error");
       });
     }
+    
+    /* Cleanup timeout on unmount or phase change */
+    return () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    };
   }, [tok, loadPhase]);
 
   async function fetchAll(token) {
@@ -188,9 +246,15 @@ export default function Examiner() {
   }
 
   function handleRetry() {
+    /* Clear any pending timeouts */
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    
     setDb(null);
     setErrorMsg("");
-    // Reset to "idle" last — this is what re-triggers the useEffect
+    setProgress(0);
+    setStepLabel("");
+    
+    /* Reset to "idle" last — this is what re-triggers the useEffect */
     setLoadPhase("idle");
   }
 
