@@ -284,14 +284,18 @@ export default function StatementTab({ db, smap }) {
 
   /* ── Derived counts ── */
   // Special rule: May 2026 prev pending is a fixed constant when generating June 2026 report.
-  // For July 2026 (prev = June 2026) compute: May2026_pending + June2026_institution - June2026_disposal
+  // For July 2026 (prev = June 2026) compute:
+  //   Prev Pending = May 2026 FIR Pending + FIRs received in Jun 2026 - CNum where dreg in Jun 2026
   const MAY_2026_CONST = 1590;
   let prevPendingCount = 0;
+  let prevPendingFormula = "";
   if (!submitted) {
     prevPendingCount = 0;
+    prevPendingFormula = "";
   } else if (mm === 6 && yyyy === 2026) {
     // Generating June 2026 report -> previous month (May 2026) is fixed
     prevPendingCount = MAY_2026_CONST;
+    prevPendingFormula = "May 2026 FIR Pending (fixed constant)";
   } else if (mm === 7 && yyyy === 2026) {
     // Generating July 2026 report -> previous month is June 2026
     // prevPending = May2026_pending (constant) + Institution in June2026 - Disposal in June2026
@@ -317,8 +321,10 @@ export default function StatementTab({ db, smap }) {
     }).length;
 
     prevPendingCount = MAY_2026_CONST + instCount - dispCount;
+    prevPendingFormula = "May 2026 FIR Pending + FIRs received in Jun 2026 - CNum where dreg in Jun 2026";
   } else {
     prevPendingCount = prevPendingFirs.length;
+    prevPendingFormula = `FIR Pending (dr ≤ ${prevEnd}) + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`;
   }
 
   /* ── All unique FIR years (for yearwise columns) ── */
@@ -602,12 +608,7 @@ export default function StatementTab({ db, smap }) {
             <div className="stat">
               <div className="stat-lbl">Pending (Prev Month End)</div>
               <div className="stat-val">{prevPendingCount}</div>
-              <div className="stat-sub">
-                FIRs (dr ≤ {prevEnd})
-                {prevMM === 5 && prevYYYY === 2026
-                  ? " + CNum dreg in June 2026"
-                  : ` + CNum dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
-              </div>
+              <div className="stat-sub">{prevPendingFormula}</div>
             </div>
             <div className="stat">
               <div className="stat-lbl">FIR Institution (Added)</div>
@@ -637,10 +638,7 @@ export default function StatementTab({ db, smap }) {
             fontSize: 11, color: "var(--txt2)", lineHeight: 1.7,
           }}>
             <strong style={{ color: "var(--txt1)" }}>📌 Calculation logic:</strong>
-            &nbsp; Prev Pending = FIR Pending (dr ≤ {prevEnd})
-            {prevMM === 5 && prevYYYY === 2026
-              ? ` + CNum where dreg in June 2026`
-              : ` + CNum where dreg in ${MON_SHORT[prevMM]} ${prevYYYY}`}
+            &nbsp; {prevPendingFormula}
             &nbsp;|&nbsp; Institution = FIRs received in {MON_SHORT[mm]} {yyyy}
             &nbsp;|&nbsp; Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy}
             &nbsp;|&nbsp; This Month Pending = live count from FIR Pending Register
