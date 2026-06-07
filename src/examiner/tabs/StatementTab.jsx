@@ -283,7 +283,43 @@ export default function StatementTab({ db, smap }) {
   const totalPending = allFirs.length;
 
   /* ── Derived counts ── */
-  const prevPendingCount = prevPendingFirs.length;
+  // Special rule: May 2026 prev pending is a fixed constant when generating June 2026 report.
+  // For July 2026 (prev = June 2026) compute: May2026_pending + June2026_institution - June2026_disposal
+  const MAY_2026_CONST = 1590;
+  let prevPendingCount = 0;
+  if (!submitted) {
+    prevPendingCount = 0;
+  } else if (mm === 6 && yyyy === 2026) {
+    // Generating June 2026 report -> previous month (May 2026) is fixed
+    prevPendingCount = MAY_2026_CONST;
+  } else if (mm === 7 && yyyy === 2026) {
+    // Generating July 2026 report -> previous month is June 2026
+    // prevPending = May2026_pending (constant) + Institution in June2026 - Disposal in June2026
+    const prevMonth = prevMM; const prevYear = prevYYYY;
+
+    // Institution in prev month (June 2026): pending.dr in prev month + cnum.dreg in prev month (deduped)
+    const instFromPending = allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p && p.mm === prevMonth && p.yyyy === prevYear;
+    });
+    const instFromCnum = allCnum.filter(r => {
+      const p = parseDateFlex(r.dreg);
+      return p && p.mm === prevMonth && p.yyyy === prevYear;
+    });
+    const seenInst = new Set(instFromPending.map(r => r.cr));
+    const instExtra = instFromCnum.filter(r => r.fn && !seenInst.has(r.fn));
+    const instCount = instFromPending.length + instExtra.length;
+
+    // Disposal in prev month (June 2026): cnum entries where dreg in prev month
+    const dispCount = allCnum.filter(r => {
+      const p = parseDateFlex(r.dreg);
+      return p && p.mm === prevMonth && p.yyyy === prevYear;
+    }).length;
+
+    prevPendingCount = MAY_2026_CONST + instCount - dispCount;
+  } else {
+    prevPendingCount = prevPendingFirs.length;
+  }
 
   /* ── All unique FIR years (for yearwise columns) ── */
   const allYears = useMemo(() => {
