@@ -118,7 +118,7 @@ export const ACTS = [
   { id:"NDPS",   label:"NDPS Act",        short:"NDPS" },
   { id:"TNPHW",  label:"TNPHW Act",       short:"TNPHW" },
   { id:"MVA",    label:"MV Act",          short:"MVA" },
-  { id:"PC",     label:"PC Act",          short:"PC Act" },
+  { id:"TNP",     label:"TNP Act,          short:"TNP Act" },
 ];
 
 /**
