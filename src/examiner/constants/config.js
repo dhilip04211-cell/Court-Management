@@ -119,6 +119,7 @@ export const ACTS = [
   { id:"TNPHW",  label:"TNPHW Act",       short:"TNPHW" },
   { id:"MVA",    label:"MV Act",          short:"MVA" },
   { id:"TNP",     label:"TNP Act",         short:"TNP Act" },
+   { id:"BNSS",     label:"BNSS Act",         short:"BNSS Act" },
 ];
 
 /**
