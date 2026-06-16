@@ -1542,6 +1542,113 @@ body {
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* ── Lock button (shown in step headers) ─────────────────────── */
+.et-lock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--et-bdr);
+  background: transparent;
+  color: var(--et-txt3);
+  margin-left: auto;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.et-lock-btn:hover {
+  border-color: var(--et-gold);
+  color: var(--et-gold);
+}
+.et-lock-btn-on {
+  background: rgba(232, 184, 75, 0.12);
+  border-color: var(--et-gold);
+  color: var(--et-gold);
+}
+
+/* ── Lock bar (sticky chips at top of form when anything locked) */
+.et-lock-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 2px;
+  animation: et-lock-bar-in 0.2s ease;
+}
+@keyframes et-lock-bar-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.et-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.et-lock-chip-st {
+  background: rgba(96, 165, 250, 0.12);
+  border: 1.5px solid rgba(96, 165, 250, 0.4);
+  color: var(--et-blu);
+}
+.et-lock-chip-dt {
+  background: rgba(74, 222, 128, 0.10);
+  border: 1.5px solid rgba(74, 222, 128, 0.35);
+  color: var(--et-grn);
+}
+.et-lock-chip-uns {
+  background: rgba(167, 139, 250, 0.10);
+  border: 1.5px solid rgba(167, 139, 250, 0.35);
+  color: var(--et-pur, #a78bfa);
+}
+.et-lock-chip-del {
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.et-lock-chip-del:hover { opacity: 1; }
+
+/* ── Locked field display (replaces input when locked) ────────── */
+.et-locked-field {
+  padding: 10px 14px 12px;
+}
+.et-locked-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--et-txt3);
+  margin-bottom: 4px;
+}
+.et-locked-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--et-gold);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* ── Locked station pill (special locked visual) ──────────────── */
+.et-pill-locked {
+  border-color: var(--et-gold) !important;
+  background: rgba(232, 184, 75, 0.15) !important;
+  color: var(--et-gold) !important;
+  cursor: default !important;
+}
+.et-pill-locked:active { transform: none !important; }
+
 /* ═══════════════════════════════════════════════════════════════
    FTC TAB (ftc-*)
 ═══════════════════════════════════════════════════════════════ */
