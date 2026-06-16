@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useMemo } from "react";
 
 const CASE_TYPE_ORDER = ["PRC", "CC", "STC", "MC", "CRLMP"];
 
@@ -50,11 +50,14 @@ function PillGroup({ value, onChange, options }) {
 }
 
 export default function QueryBuilderInner({
+  db,
   SMAP,
   qbStation,
   setQbStation,
   qbCaseType,
   setQbCaseType,
+  qbSection,
+  setQbSection,
   qbListType,
   setQbListType,
   qbDateMode,
@@ -86,6 +89,32 @@ export default function QueryBuilderInner({
   handleQbDateInput,
   getQbRowKey,
 }) {
+  // ── CRLMP section search state ────────────────────────────────
+  const [secSearch, setSecSearch] = useState("");
+
+  // Extract unique act+section labels from all CRLMP cases
+  const sectionOptions = useMemo(() => {
+    if (qbCaseType !== "CRLMP") return [];
+    const secs = new Set();
+    const addSecs = (list) => {
+      list.forEach((r) => {
+        if (detectCaseType(r.cn) === "CRLMP") {
+          const s = (r.sec || "").trim();
+          if (s) secs.add(s);
+        }
+      });
+    };
+    addSecs(db?.pend || []);
+    addSecs(db?.disp || []);
+    return Array.from(secs).sort((a, b) => a.localeCompare(b));
+  }, [qbCaseType, db?.pend, db?.disp]);
+
+  // Sections filtered by the search input
+  const filteredSections = useMemo(() => {
+    if (!secSearch.trim()) return sectionOptions;
+    const term = secSearch.toLowerCase();
+    return sectionOptions.filter((s) => s.toLowerCase().includes(term));
+  }, [sectionOptions, secSearch]);
   const caseTypeOptions = [
     { value: "ALL", label: "ALL", color: "var(--txt)" },
     { value: "PRC", label: "PRC", color: "#e8a020" },
@@ -145,6 +174,8 @@ export default function QueryBuilderInner({
             value={qbCaseType}
             onChange={(v) => {
               setQbCaseType(v);
+              setQbSection("ALL");
+              setSecSearch("");
               setQbSelRow(null);
               setQbSelectedRows([]);
               setQbConfirm(false);
@@ -153,6 +184,127 @@ export default function QueryBuilderInner({
             options={caseTypeOptions}
           />
         </div>
+
+        {/* ── CRLMP Section Filter (only visible when CRLMP selected) ── */}
+        {qbCaseType === "CRLMP" && sectionOptions.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <label className="lbl" style={{ display: "block", marginBottom: 6 }}>
+              Act / Section
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontWeight: 400,
+                  color: "var(--txt3)",
+                  fontSize: 9,
+                  textTransform: "none",
+                  letterSpacing: 0,
+                }}
+              >
+                ({sectionOptions.length} found)
+              </span>
+            </label>
+
+            {/* Search box */}
+            <input
+              className="inp"
+              type="text"
+              placeholder="🔍 Search section…"
+              value={secSearch}
+              onChange={(e) => setSecSearch(e.target.value)}
+              style={{
+                marginBottom: 8,
+                fontSize: 12,
+              }}
+            />
+
+            {/* Section pills */}
+            <div
+              style={{
+                maxHeight: 180,
+                overflowY: "auto",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 5,
+                padding: "6px 0",
+              }}
+            >
+              {/* ALL pill */}
+              <button
+                onClick={() => {
+                  setQbSection("ALL");
+                  setQbSelRow(null);
+                  setQbSelectedRows([]);
+                  setQbConfirm(false);
+                  setQbMoveMsg(null);
+                }}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 16,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  border: "1.5px solid",
+                  borderColor:
+                    qbSection === "ALL" ? "#ec4899" : "var(--bdr)",
+                  background:
+                    qbSection === "ALL" ? "#ec489922" : "var(--bg3)",
+                  color:
+                    qbSection === "ALL" ? "#ec4899" : "var(--txt2)",
+                  transition: "all 0.15s",
+                }}
+              >
+                ALL
+              </button>
+
+              {filteredSections.map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => {
+                    setQbSection(sec);
+                    setQbSelRow(null);
+                    setQbSelectedRows([]);
+                    setQbConfirm(false);
+                    setQbMoveMsg(null);
+                  }}
+                  title={sec}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 16,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: "1.5px solid",
+                    borderColor:
+                      qbSection === sec ? "#ec4899" : "var(--bdr)",
+                    background:
+                      qbSection === sec ? "#ec489922" : "var(--bg3)",
+                    color:
+                      qbSection === sec ? "#ec4899" : "var(--txt2)",
+                    transition: "all 0.15s",
+                    maxWidth: 260,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {sec}
+                </button>
+              ))}
+
+              {filteredSections.length === 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--txt3)",
+                    padding: "4px 8px",
+                  }}
+                >
+                  No sections match "{secSearch}"
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 14 }}>
           <label className="lbl" style={{ display: "block", marginBottom: 6 }}>

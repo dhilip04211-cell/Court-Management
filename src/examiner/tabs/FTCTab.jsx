@@ -120,6 +120,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   // ── QB state ─────────────────────────────────────────────────
   const [qbStation, setQbStation] = useState("ALL");
   const [qbCaseType, setQbCaseType] = useState("ALL");
+  const [qbSection, setQbSection] = useState("ALL");
   const [qbListType, setQbListType] = useState("ALL");
   const [qbDateMode, setQbDateMode] = useState("between");
   const [qbDateA, setQbDateA] = useState("");
@@ -469,6 +470,10 @@ export default function FTCTab({ db, setDb, tok, smap }) {
         if (qbCaseType === "ALL") return true;
         return detectCaseType(cn) === qbCaseType;
       };
+      const matchSection = (sec) => {
+        if (qbCaseType !== "CRLMP" || qbSection === "ALL") return true;
+        return (sec || "").trim() === qbSection;
+      };
       const matchDate = (dreg) => {
         const d = parseDate(dreg);
         if (!d) return true; // no dreg → include
@@ -497,6 +502,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
           ...data.pend
             .filter((r) => matchStation(r.sta))
             .filter((r) => matchCaseType(r.cn))
+            .filter((r) => matchSection(r.sec))
             .filter((r) => matchDate(r.dreg))
             .map((r) => ({ ...r, _type: "pending" }))
         );
@@ -506,6 +512,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
           ...data.disp
             .filter((r) => matchStation(r.sta))
             .filter((r) => matchCaseType(r.cn))
+            .filter((r) => matchSection(r.sec))
             .filter((r) => matchDate(r.dreg))
             .map((r) => ({ ...r, _type: "disposal" }))
         );
@@ -907,6 +914,9 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
       {subTab === "query" && (
         <QueryBuilderInner
+          db={db}
+          qbSection={qbSection}
+          setQbSection={setQbSection}
           SMAP={SMAP}
           qbStation={qbStation}
           setQbStation={setQbStation}
