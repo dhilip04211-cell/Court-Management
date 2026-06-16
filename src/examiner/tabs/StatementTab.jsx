@@ -53,6 +53,17 @@ function firYear(cr) {
   return m[m.length - 1] || "";
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   FIR NORMALISATION
+   Strips leading zeros before the slash so that
+   "0256/2026" and "256/2026" are treated as the same FIR.
+   Used exclusively for deduplication — display values are unchanged.
+───────────────────────────────────────────────────────────────── */
+function normFIR(s) {
+  if (!s) return "";
+  return s.toString().trim().replace(/^0+(\d+\/)/, "$1");
+}
+
 /* ── Year / Month minimum boundaries ── */
 const MIN_YEAR = 2026;
 const MIN_MONTH = 6; // June
@@ -205,13 +216,27 @@ export default function StatementTab({ db, smap }) {
   /* numeric YYYYMMDD boundaries for fast comparison */
   const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;
 
-  /* ── All FIRs flat (from FIR Pending register) ── */
+  /* ─────────────────────────────────────────────────────────────
+     ALL FIRs FLAT (from FIR Pending register)
+
+     FIX 1: Cross-station deduplication.
+     The same FIR number can appear in multiple station sheets
+     (e.g. "166/2026" in both Jayankondam and Vikkiramangalam).
+     We keep only the first occurrence (by SMAP order) so the
+     count matches the physical register.
+  ───────────────────────────────────────────────────────────── */
   const allFirs = useMemo(() => {
     const out = [];
-    for (const s of SMAP)
-      for (const r of (db.fir[s.sh] || []))
-        if (isValidFIRCell(r.cr))
-          out.push({ ...r, stSh: s.sh, stLb: s.lb, firYr: firYear(r.cr) });
+    const seenCR = new Set(); // normalised CR → skip cross-station dupes
+    for (const s of SMAP) {
+      for (const r of (db.fir[s.sh] || [])) {
+        if (!isValidFIRCell(r.cr)) continue;
+        const norm = normFIR(r.cr);
+        if (seenCR.has(norm)) continue; // skip duplicate
+        seenCR.add(norm);
+        out.push({ ...r, stSh: s.sh, stLb: s.lb, firYr: firYear(r.cr) });
+      }
+    }
     return out;
   }, [db.fir, SMAP]);
 
@@ -225,7 +250,9 @@ export default function StatementTab({ db, smap }) {
        FIR Pending list  →  dr ≤ prev month last date  (always)
        CNum list         →  prev month == May 2026 ? dreg in June 2026 only
                                                     : dreg in prev month
-     Deduplicate by FIR number before combining.
+     FIX 2: Normalise FIR numbers before dedup to handle leading-
+     zero mismatch between FIR Pending ("256/2026") and Case
+     Numbered ("0256/2026").
   ───────────────────────────────────────────────────────────── */
   const prevPendingFirs = useMemo(() => {
     if (!submitted) return [];
@@ -243,20 +270,17 @@ export default function StatementTab({ db, smap }) {
 
     const fromCnum = allCnum.filter(r => {
       if (isMay2026) {
-        // date of registration in June 2026 only
         const pDreg = parseDateFlex(r.dreg);
-        const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
-
-        return dregOk;
+        return pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
       } else {
-        // All other months: dreg within that specific prev month only
         const p = parseDateFlex(r.dreg);
         return p && p.mm === prevMM && p.yyyy === prevYYYY;
       }
     });
-    /* Step 3 — Deduplicate: skip cnum entries already in pending list */
-    const seen = new Set(fromPending.map(r => r.cr));
-    const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+
+    /* Step 3 — FIX 2: normalise before dedup */
+    const seen = new Set(fromPending.map(r => normFIR(r.cr)));
+    const extra = fromCnum.filter(r => r.fn && !seen.has(normFIR(r.fn)));
 
     return [...fromPending, ...extra];
   }, [allFirs, allCnum, prevEndNum, prevMM, prevYYYY, submitted]);
@@ -265,6 +289,8 @@ export default function StatementTab({ db, smap }) {
      INSTITUTION (ADDED THIS MONTH)
      FIR Pending dr in selected MM/YYYY
      + CNum dr in selected MM/YYYY (deduplicated)
+
+     FIX 2 applied here as well.
   ───────────────────────────────────────────────────────────── */
   const institutionFirs = useMemo(() => {
     if (!submitted) return [];
@@ -279,8 +305,9 @@ export default function StatementTab({ db, smap }) {
       return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
     });
 
-    const seen = new Set(fromPending.map(r => r.cr));
-    const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+    /* FIX 2: normalised dedup */
+    const seen = new Set(fromPending.map(r => normFIR(r.cr)));
+    const extra = fromCnum.filter(r => r.fn && !seen.has(normFIR(r.fn)));
 
     return [...fromPending, ...extra];
   }, [allFirs, allCnum, mm, yyyy, asOnNum, submitted]);
@@ -301,6 +328,7 @@ export default function StatementTab({ db, smap }) {
      PENDING (THIS MONTH END / AS ON DATE)
      FIRs currently in the FIR Pending register with Date Received
      on or before the selected "as on" date.
+     allFirs is already cross-station-deduped (FIX 1).
   ───────────────────────────────────────────────────────────── */
   const totalPending = useMemo(() => {
     return allFirs.filter(r => {
@@ -309,8 +337,7 @@ export default function StatementTab({ db, smap }) {
     }).length;
   }, [allFirs, asOnNum]);
 
-  /* FIRs received on/before the as-on date (the base set for the pending list
-     and exports — independent of the UI's year-filter chips). */
+  /* FIRs received on/before the as-on date (base set for pending list & exports) */
   const pendingAsOf = useMemo(() => {
     return allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
@@ -319,9 +346,6 @@ export default function StatementTab({ db, smap }) {
   }, [allFirs, asOnNum]);
 
   /* ── Derived counts ── */
-  // Special rule: May 2026 prev pending is a fixed constant (1590).
-  // For June 2026 onwards: prevPending = May 2026 constant + (total institutions from June to prev month) - (total disposals from June to prev month)
-  // Each month recalculates independently from the May constant — NOT chained.
   const MAY_2026_CONST = 1590;
   let prevPendingCount = 0;
   let prevPendingFormula = "";
@@ -329,46 +353,33 @@ export default function StatementTab({ db, smap }) {
     prevPendingCount = 0;
     prevPendingFormula = "";
   } else if (mm === 6 && yyyy === 2026) {
-    // Generating June 2026 report -> previous month (May 2026) is fixed
     prevPendingCount = MAY_2026_CONST;
     prevPendingFormula = "May 2026 FIR Pending (fixed constant)";
   } else if (yyyy === 2026 && mm >= 7) {
-    // July 2026 onwards: Use accumulated formula (NOT chained)
-    // prevPending = May2026_const + (all institutions June through prev month) - (all disposals June through prev month)
-    // Institution = FIR Pending DR received + CNUM DR (case number registration)
-    // Disposal = CNUM Dereg (dereg date)
+    /* July 2026 onwards: accumulate from May 2026 constant.
+       Each month is calculated independently from the May baseline — NOT chained. */
 
-    // Count 1: FIR Pending with dr (date received) from June to prev month
+    // FIR Pending with dr from June through end of prev month
     const instFromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
       if (!p) return false;
-      // Date in June 2026 through previous month
-      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
-      return false;
+      return p.yyyy === 2026 && p.mm >= 6 && p.mm < mm;
     });
 
-    // Count 2: CNUM with dr (date received) from June to prev month — NOT dreg!
+    // CNum with dr (date received) from June through end of prev month
     const instFromCnum = allCnum.filter(r => {
-      const p = parseDateFlex(r.dr);  // ✓ FIXED: was r.dreg, now r.dr (date received)
+      const p = parseDateFlex(r.dr);
       if (!p) return false;
-      // Date in June 2026 through previous month
-      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
-      return false;
+      return p.yyyy === 2026 && p.mm >= 6 && p.mm < mm;
     });
 
-    // Total institution = sum of both (no deduplication needed)
     const totalInstitution = instFromPending.length + instFromCnum.length;
 
-    // Disposal: CNUM with dreg (dereg date) from June to prev month
+    // Disposal: CNum with dreg from June through end of prev month
     const totalDisposal = allCnum.filter(r => {
       const p = parseDateFlex(r.dreg);
       if (!p) return false;
-      // Date in June 2026 through previous month
-      if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
-      return false;
+      return p.yyyy === 2026 && p.mm >= 6 && p.mm < mm;
     }).length;
 
     prevPendingCount = MAY_2026_CONST + totalInstitution - totalDisposal;
@@ -593,7 +604,7 @@ export default function StatementTab({ db, smap }) {
         <div className="ctitle">📄 Monthly FIR Statement</div>
         <div className="frow" style={{ alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
 
-          {/* Month select — hide Jan–Apr when year is 2026 */}
+          {/* Month select — hide Jan–May when year is 2026 */}
           <div className="fg">
             <label className="lbl">Month</label>
             <select className="inp" value={selMonth}
@@ -619,7 +630,6 @@ export default function StatementTab({ db, smap }) {
               onChange={e => {
                 const newYear = e.target.value;
                 setSelYear(newYear);
-                /* If switching to 2026 and current month < May, snap to May */
                 if (parseInt(newYear, 10) === MIN_YEAR && parseInt(selMonth, 10) < MIN_MONTH) {
                   setSelMonth(pad2(MIN_MONTH));
                 }
