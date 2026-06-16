@@ -10,10 +10,10 @@
 //  async handlers, then passes them down as props.
 // ════════════════════════════════════════════════════════════════
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { isValidFIRCell, parseFIR, normalizeFIRCell } from "../utils/helpers.js";
-import { sheetsGet, sheetsUpdate } from "../utils/sheets.js";
-import { SID } from "../constants/config.js";
+import { sheetsGet, sheetsUpdate, sheetsDeleteRow } from "../utils/sheets.js";
+import { SID, normalizeStation } from "../constants/config.js";
 import { exportToExcel, exportToWord } from "../utils/exportUtils.js";
 import StatementTab from "./inner/StatementTab.jsx";
 import AbstractInner from "./inner/AbstractInner.jsx";
@@ -70,6 +70,22 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   const [maintMsg, setMaintMsg] = useState(null);
   const [renumMsg, setRenumMsg] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
+
+  const [maintProgress, setMaintProgress] = useState(0);
+  const [maintSnack, setMaintSnack] = useState(null);
+  const maintSnackTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (maintSnackTimer.current) clearTimeout(maintSnackTimer.current);
+    };
+  }, []);
+
+  function showMaintSnack(msg, type = "success") {
+    if (maintSnackTimer.current) clearTimeout(maintSnackTimer.current);
+    setMaintSnack({ msg, type });
+    maintSnackTimer.current = setTimeout(() => setMaintSnack(null), 3500);
+  }
 
   /* ══════════════════════════════════════════════════════════
      ABSTRACT — derived data
@@ -208,11 +224,25 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════ */
   async function doScan() {
     setScanning(true); setIssues(null); setMaintMsg(null); setRenumMsg(null);
-    const concat = [], dateBad = [], slBad = [], firOOO = [];
+    setMaintProgress(0);
+    const concat = [], dateBad = [], slBad = [], firOOO = [], moved = [];
 
+    // Pre-parse db.cnum for faster lookups
+    const cnumParsed = (db.cnum || []).map(c => {
+      return {
+        parsed: parseFIR(c.fn),
+        sta: normalizeStation(c.sta)
+      };
+    }).filter(c => c.parsed.num && c.parsed.yr);
+
+    let idx = 0;
     for (const s of SMAP) {
+      setMaintProgress(Math.round((idx / SMAP.length) * 100));
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
-      if (!raw?.length) continue;
+      if (!raw?.length) {
+        idx++;
+        continue;
+      }
 
       let expectedSl = 1, lastKey = -1, lastCR = "";
 
@@ -241,12 +271,34 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         if (sl && !isNaN(slNum) && slNum !== expectedSl)
           slBad.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, slActual: sl, slExpected: expectedSl });
         expectedSl++;
+
+        // Check if already moved/present in case numbered list (matching FIR number + station name)
+        const fParsed = parseFIR(cr);
+        const isAlreadyMoved = cnumParsed.some(c => 
+          c.parsed.num === fParsed.num && 
+          c.parsed.yr === fParsed.yr && 
+          c.sta === normalizeStation(s.lb)
+        );
+        if (isAlreadyMoved) {
+          moved.push({ sh: s.sh, lb: s.lb, row: i + 1, cr, sec, dr });
+        }
       }
+      idx++;
     }
 
+    setMaintProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     concat.sort((a, b) => robustFirSortKey(a.fixed) - robustFirSortKey(b.fixed));
-    setIssues({ concat, date: dateBad, sl: slBad, fir: firOOO });
+    setIssues({ concat, date: dateBad, sl: slBad, fir: firOOO, moved });
     setScanning(false);
+
+    const totalIssues = concat.length + dateBad.length + slBad.length + firOOO.length + moved.length;
+    if (totalIssues === 0) {
+      showMaintSnack("✓ Scan complete. All sheets are clean!", "success");
+    } else {
+      showMaintSnack(`⚠ Scan complete. Found ${totalIssues} data issues.`, "info");
+    }
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -256,6 +308,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   async function fixConcatenated() {
     if (!issues?.concat?.length) return;
     setFixing(true);
+    setMaintProgress(0);
     setMaintMsg({ type: "loading", text: `Fixing ${issues.concat.length} concatenated CR numbers…` });
     let fixed = 0;
     for (const iss of issues.concat) {
@@ -267,11 +320,16 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           fir: { ...prev.fir, [iss.sh]: (prev.fir[iss.sh] || []).map(r => r.ri === iss.row ? { ...r, cr: iss.fixed } : r) }
         }));
       }
+      setMaintProgress(Math.round((fixed / issues.concat.length) * 100));
     }
+    setMaintProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     setMaintMsg({ type: "ok", text: `✓ Fixed ${fixed}/${issues.concat.length} concatenated CR numbers.` });
     setIssues(prev => ({ ...prev, concat: [] }));
     setFixing(false);
     setTimeout(() => setMaintMsg(null), 4000);
+    showMaintSnack(`✓ Fixed ${fixed}/${issues.concat.length} concatenated CR numbers.`, "success");
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -279,22 +337,34 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════ */
   async function fixSerialNumbers() {
     setFixing(true);
+    setMaintProgress(0);
     setRenumMsg({ type: "loading", text: "Re-numbering serial numbers across all sheets…" });
     let totalWritten = 0;
 
+    let idx = 0;
     for (const s of SMAP) {
+      setMaintProgress(Math.round((idx / SMAP.length) * 100));
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
-      if (!raw?.length) continue;
+      if (!raw?.length) {
+        idx++;
+        continue;
+      }
 
       const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
       const firSlots = structure.filter(r => r.type === "fir");
-      if (firSlots.length === 0) continue;
+      if (firSlots.length === 0) {
+        idx++;
+        continue;
+      }
 
       const needsUpdate = firSlots.some((slot, i) => {
         const currentSl = parseInt(slot.sl, 10);
         return isNaN(currentSl) || currentSl !== i + 1;
       });
-      if (!needsUpdate) continue;
+      if (!needsUpdate) {
+        idx++;
+        continue;
+      }
 
       for (let i = 0; i < firSlots.length; i++) {
         const slot = firSlots[i];
@@ -312,7 +382,11 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         });
         return { ...prev, fir: { ...prev.fir, [s.sh]: newRows } };
       });
+      idx++;
     }
+
+    setMaintProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
 
     setRenumMsg({
       type: "ok",
@@ -323,6 +397,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     setIssues(prev => prev ? { ...prev, sl: [] } : prev);
     setFixing(false);
     setTimeout(() => setRenumMsg(null), 3500);
+
+    showMaintSnack(totalWritten > 0
+      ? `✓ Renumbered ${totalWritten} serial cells across all sheets.`
+      : `✓ All serial numbers were already correct.`, "success");
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -331,20 +409,32 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   async function fixFIROrder() {
     if (!issues?.fir?.length) return;
     setFixing(true);
+    setMaintProgress(0);
     setMaintMsg({ type: "loading", text: "Re-ordering FIR rows across all sheets…" });
     let totalWritten = 0;
 
+    let idx = 0;
     for (const s of SMAP) {
+      setMaintProgress(Math.round((idx / SMAP.length) * 100));
       const raw = await sheetsGet(tok, SID.fir, `${s.sh}!A:D`);
-      if (!raw?.length) continue;
+      if (!raw?.length) {
+        idx++;
+        continue;
+      }
 
       const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
       const firRows = structure.filter(r => r.type === "fir").map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
-      if (firRows.length === 0) continue;
+      if (firRows.length === 0) {
+        idx++;
+        continue;
+      }
 
       const sorted = [...firRows].sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
       sorted.forEach((r, i) => { r.sl = String(i + 1); });
-      if (firRows.every((r, i) => r.cr === sorted[i].cr)) continue;
+      if (firRows.every((r, i) => r.cr === sorted[i].cr)) {
+        idx++;
+        continue;
+      }
 
       const newSheetValues = []; let si = 0;
       for (const item of structure) {
@@ -369,7 +459,11 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         });
         return { ...prev, fir: { ...prev.fir, [s.sh]: newRows } };
       });
+      idx++;
     }
+
+    setMaintProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
 
     setMaintMsg({
       type: "ok",
@@ -380,6 +474,65 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     setIssues(prev => prev ? { ...prev, fir: [], sl: [] } : prev);
     setFixing(false);
     setTimeout(() => setMaintMsg(null), 4000);
+
+    showMaintSnack(totalWritten > 0
+      ? `✓ Re-ordered ${totalWritten} FIR rows. All sheets are now in ascending order.`
+      : `✓ All FIR rows were already in correct order.`, "success");
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     MAINTENANCE — fix moved duplicates
+  ══════════════════════════════════════════════════════════ */
+  async function fixMovedDuplicates() {
+    if (!issues?.moved?.length) return;
+    setFixing(true);
+    setMaintProgress(0);
+    setMaintMsg({ type: "loading", text: `Removing ${issues.moved.length} registered FIRs from pending sheets…` });
+
+    // Group duplicates by station sheet
+    const byStation = {};
+    for (const iss of issues.moved) {
+      if (!byStation[iss.sh]) {
+        byStation[iss.sh] = [];
+      }
+      byStation[iss.sh].push(iss);
+    }
+
+    let deletedCount = 0;
+    const totalCount = issues.moved.length;
+
+    for (const sh of Object.keys(byStation)) {
+      // Sort row indices in descending order to avoid shifting bugs
+      const items = byStation[sh].sort((a, b) => b.row - a.row);
+
+      let localRows = db.fir[sh] ? [...db.fir[sh]] : [];
+
+      for (const item of items) {
+        const ok = await sheetsDeleteRow(tok, SID.fir, item.sh, item.row);
+        if (ok) {
+          deletedCount++;
+          localRows = localRows
+            .filter(r => r.ri !== item.row)
+            .map(r => r.ri > item.row ? { ...r, ri: r.ri - 1 } : r);
+        }
+        setMaintProgress(Math.round((deletedCount / totalCount) * 100));
+      }
+
+      setDb(prev => ({
+        ...prev,
+        fir: { ...prev.fir, [sh]: localRows }
+      }));
+    }
+
+    setMaintProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    setMaintMsg({ type: "ok", text: `✓ Removed ${deletedCount}/${issues.moved.length} registered FIRs from pending.` });
+    setIssues(prev => prev ? { ...prev, moved: [] } : prev);
+    setFixing(false);
+    setTimeout(() => setMaintMsg(null), 4000);
+
+    showMaintSnack(`✓ Removed ${deletedCount}/${issues.moved.length} registered FIRs from pending.`, "success");
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -510,6 +663,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           maintMsg={maintMsg} renumMsg={renumMsg}
           doScan={doScan} fixConcatenated={fixConcatenated}
           fixSerialNumbers={fixSerialNumbers} fixFIROrder={fixFIROrder}
+          fixMovedDuplicates={fixMovedDuplicates}
+          maintProgress={maintProgress}
+          maintSnack={maintSnack}
         />
       )}
     </div>

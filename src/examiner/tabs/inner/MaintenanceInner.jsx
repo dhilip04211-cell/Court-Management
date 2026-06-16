@@ -20,7 +20,8 @@ function robustFirSortKey(cr) {
 export default function MaintenanceInner({
   issues, scanning, fixing,
   maintMsg, renumMsg,
-  doScan, fixConcatenated, fixSerialNumbers, fixFIROrder,
+  doScan, fixConcatenated, fixSerialNumbers, fixFIROrder, fixMovedDuplicates,
+  maintProgress, maintSnack,
 }) {
   const [concatSortAsc, setConcatSortAsc] = useState(true);
 
@@ -35,6 +36,18 @@ export default function MaintenanceInner({
 
   return (
     <div className="abt-maint-root">
+
+      {(scanning || fixing) && (
+        <div className="card" style={{ marginBottom: 16, border: "1px solid var(--accent)", padding: "16px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold", marginBottom: 8 }}>
+            <span>{scanning ? "🔍 Scanning sheets..." : "⚙️ Fixing data issues..."}</span>
+            <span style={{ color: "var(--accent)", fontFamily: "monospace" }}>{maintProgress}%</span>
+          </div>
+          <div className="ex-prog-track" style={{ height: 8, background: "var(--bg3)", borderRadius: 99, overflow: "hidden", position: "relative" }}>
+            <div className="ex-prog-fill" style={{ width: `${maintProgress}%`, height: "100%", background: "var(--accent)", transition: "width 0.1s linear" }} />
+          </div>
+        </div>
+      )}
 
       <div className="abt-scan-card">
         <div className="abt-scan-icon">🔍</div>
@@ -74,9 +87,13 @@ export default function MaintenanceInner({
               <div className="abt-issue-num">{issues.sl.length}</div>
               <div className="abt-issue-lbl">Sl. Out of Order</div>
             </div>
+            <div className={`abt-issue-chip ${issues.moved?.length > 0 ? "abt-issue-red" : "abt-issue-green"}`}>
+              <div className="abt-issue-num">{issues.moved?.length ?? 0}</div>
+              <div className="abt-issue-lbl">Already Registered</div>
+            </div>
           </div>
 
-          {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && !issues.fir?.length && (
+          {issues.concat.length === 0 && issues.date.length === 0 && issues.sl.length === 0 && !issues.fir?.length && !issues.moved?.length && (
             <div className="msg-ok" style={{ marginBottom: 10 }}>✓ All sheets are clean — no data issues found.</div>
           )}
 
@@ -113,7 +130,36 @@ export default function MaintenanceInner({
             </div>
           )}
 
-          {/* Date Format Issues */}
+          {/* Already Registered / Moved to Case Numbered */}
+          {issues.moved?.length > 0 && (
+            <div className="card">
+              <div className="ctitle">
+                📋 Already Registered (Present in Case Numbered)
+                <button className="btn btn-g btn-sm" style={{ marginLeft: "auto" }} onClick={fixMovedDuplicates} disabled={fixing}>
+                  {fixing ? "⏳ Removing…" : `✦ Remove All (${issues.moved.length})`}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>
+                These pending FIRs are already registered with case numbers in the Case Numbered List. Click <b>Remove All</b> to delete them from FIR pending sheets.
+              </div>
+              <div className="tbl-wrap">
+                <table className="abs-tbl">
+                  <thead><tr><th>Station</th><th>Row</th><th>CR No.</th><th>Section</th><th>Date</th></tr></thead>
+                  <tbody>
+                    {issues.moved.map((iss, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize: 11 }}>{iss.lb}</td>
+                        <td className="mono" style={{ color: "var(--txt3)" }}>{iss.row}</td>
+                        <td className="mono" style={{ color: "var(--gold)" }}>{iss.cr}</td>
+                        <td>{iss.sec}</td>
+                        <td className="mono">{iss.dr || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           {issues.date.length > 0 && (
             <div className="card">
               <div className="ctitle">
@@ -228,6 +274,13 @@ export default function MaintenanceInner({
         <div className={`${maintMsg.type === "ok" ? "msg-ok" : maintMsg.type === "err" ? "msg-err" : "msg-info"}`} style={{ marginTop: 8 }}>
           {maintMsg.type === "loading" && <span className="spin" style={{ display: "inline-block", marginRight: 6 }} />}
           {maintMsg.text}
+        </div>
+      )}
+
+      {maintSnack && (
+        <div className={`ex-snack ex-snack--${maintSnack.type}`} role="status" aria-live="polite" style={{ bottom: 84 }}>
+          <span className="ex-snack-dot" aria-hidden="true" />
+          {maintSnack.msg}
         </div>
       )}
     </div>
