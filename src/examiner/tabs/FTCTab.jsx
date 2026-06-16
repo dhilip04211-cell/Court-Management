@@ -472,7 +472,8 @@ export default function FTCTab({ db, setDb, tok, smap }) {
       };
       const matchSection = (sec) => {
         if (qbCaseType !== "CRLMP" || qbSection === "ALL") return true;
-        return (sec || "").trim() === qbSection;
+        if (!Array.isArray(qbSection) || qbSection.length === 0) return true;
+        return qbSection.includes((sec || "").trim());
       };
       const matchDate = (dreg) => {
         const d = parseDate(dreg);

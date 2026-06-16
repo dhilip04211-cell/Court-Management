@@ -185,126 +185,288 @@ export default function QueryBuilderInner({
           />
         </div>
 
-        {/* ── CRLMP Section Filter (only visible when CRLMP selected) ── */}
-        {qbCaseType === "CRLMP" && sectionOptions.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <label className="lbl" style={{ display: "block", marginBottom: 6 }}>
-              Act / Section
-              <span
-                style={{
-                  marginLeft: 8,
-                  fontWeight: 400,
-                  color: "var(--txt3)",
-                  fontSize: 9,
-                  textTransform: "none",
-                  letterSpacing: 0,
-                }}
-              >
-                ({sectionOptions.length} found)
-              </span>
-            </label>
+        {/* ── CRLMP Section Filter (Excel-style multi-select) ── */}
+        {qbCaseType === "CRLMP" && sectionOptions.length > 0 && (() => {
+          const selectedSet = new Set(
+            Array.isArray(qbSection) ? qbSection : []
+          );
+          const isAllSelected =
+            qbSection === "ALL" || selectedSet.size === sectionOptions.length;
+          const noneSelected =
+            qbSection === "ALL" ? false : selectedSet.size === 0;
 
-            {/* Search box */}
-            <input
-              className="inp"
-              type="text"
-              placeholder="🔍 Search section…"
-              value={secSearch}
-              onChange={(e) => setSecSearch(e.target.value)}
-              style={{
-                marginBottom: 8,
-                fontSize: 12,
-              }}
-            />
+          const toggleSection = (sec) => {
+            let next;
+            if (qbSection === "ALL") {
+              // switching from ALL → deselect this one only
+              next = sectionOptions.filter((s) => s !== sec);
+            } else {
+              const cur = new Set(qbSection);
+              if (cur.has(sec)) {
+                cur.delete(sec);
+                next = cur.size === 0 ? "ALL" : Array.from(cur);
+              } else {
+                cur.add(sec);
+                next =
+                  cur.size === sectionOptions.length
+                    ? "ALL"
+                    : Array.from(cur);
+              }
+            }
+            setQbSection(next);
+            setQbSelRow(null);
+            setQbSelectedRows([]);
+            setQbConfirm(false);
+            setQbMoveMsg(null);
+          };
 
-            {/* Section pills */}
-            <div
-              style={{
-                maxHeight: 180,
-                overflowY: "auto",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 5,
-                padding: "6px 0",
-              }}
-            >
-              {/* ALL pill */}
-              <button
-                onClick={() => {
-                  setQbSection("ALL");
+          const selectAllFiltered = () => {
+            if (filteredSections.length === sectionOptions.length) {
+              setQbSection("ALL");
+            } else {
+              const cur = new Set(
+                qbSection === "ALL" ? sectionOptions : qbSection
+              );
+              filteredSections.forEach((s) => cur.add(s));
+              setQbSection(
+                cur.size === sectionOptions.length ? "ALL" : Array.from(cur)
+              );
+            }
+            setQbSelRow(null);
+            setQbSelectedRows([]);
+            setQbConfirm(false);
+            setQbMoveMsg(null);
+          };
+
+          const deselectAllFiltered = () => {
+            if (filteredSections.length === sectionOptions.length) {
+              setQbSection([]);
+            } else {
+              const cur = new Set(
+                qbSection === "ALL" ? sectionOptions : qbSection
+              );
+              filteredSections.forEach((s) => cur.delete(s));
+              setQbSection(cur.size === 0 ? "ALL" : Array.from(cur));
+            }
+            setQbSelRow(null);
+            setQbSelectedRows([]);
+            setQbConfirm(false);
+            setQbMoveMsg(null);
+          };
+
+          const checkedCount =
+            qbSection === "ALL"
+              ? sectionOptions.length
+              : selectedSet.size;
+
+          return (
+            <div style={{ marginBottom: 14 }}>
+              <label className="lbl" style={{ display: "block", marginBottom: 6 }}>
+                Act / Section
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontWeight: 400,
+                    color: "var(--txt3)",
+                    fontSize: 9,
+                    textTransform: "none",
+                    letterSpacing: 0,
+                  }}
+                >
+                  {checkedCount} of {sectionOptions.length} selected
+                </span>
+              </label>
+
+              {/* Search box */}
+              <input
+                className="inp"
+                type="text"
+                placeholder="🔍 Search section… (auto-selects matches)"
+                value={secSearch}
+                onChange={(e) => {
+                  const term = e.target.value;
+                  setSecSearch(term);
+                  // Auto-select all matching sections on search (like Excel)
+                  if (term.trim()) {
+                    const lc = term.toLowerCase();
+                    const matching = sectionOptions.filter((s) =>
+                      s.toLowerCase().includes(lc)
+                    );
+                    if (matching.length > 0) {
+                      setQbSection(matching);
+                    }
+                  } else {
+                    // Search cleared → select all
+                    setQbSection("ALL");
+                  }
                   setQbSelRow(null);
                   setQbSelectedRows([]);
                   setQbConfirm(false);
                   setQbMoveMsg(null);
                 }}
                 style={{
-                  padding: "4px 10px",
-                  borderRadius: 16,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  border: "1.5px solid",
-                  borderColor:
-                    qbSection === "ALL" ? "#ec4899" : "var(--bdr)",
-                  background:
-                    qbSection === "ALL" ? "#ec489922" : "var(--bg3)",
-                  color:
-                    qbSection === "ALL" ? "#ec4899" : "var(--txt2)",
-                  transition: "all 0.15s",
+                  marginBottom: 8,
+                  fontSize: 12,
+                }}
+              />
+
+              {/* Select All / Deselect All bar */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "4px 0 6px",
+                  borderBottom: "1px solid var(--bdr)",
+                  marginBottom: 6,
                 }}
               >
-                ALL
-              </button>
-
-              {filteredSections.map((sec) => (
-                <button
-                  key={sec}
-                  onClick={() => {
-                    setQbSection(sec);
-                    setQbSelRow(null);
-                    setQbSelectedRows([]);
-                    setQbConfirm(false);
-                    setQbMoveMsg(null);
-                  }}
-                  title={sec}
+                <label
                   style={{
-                    padding: "4px 10px",
-                    borderRadius: 16,
-                    fontSize: 10,
-                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                     cursor: "pointer",
-                    border: "1.5px solid",
-                    borderColor:
-                      qbSection === sec ? "#ec4899" : "var(--bdr)",
-                    background:
-                      qbSection === sec ? "#ec489922" : "var(--bg3)",
-                    color:
-                      qbSection === sec ? "#ec4899" : "var(--txt2)",
-                    transition: "all 0.15s",
-                    maxWidth: 260,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {sec}
-                </button>
-              ))}
-
-              {filteredSections.length === 0 && (
-                <span
-                  style={{
                     fontSize: 11,
-                    color: "var(--txt3)",
-                    padding: "4px 8px",
+                    color: "var(--txt2)",
+                    userSelect: "none",
                   }}
                 >
-                  No sections match "{secSearch}"
-                </span>
-              )}
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredSections.length > 0 &&
+                      filteredSections.every((s) =>
+                        qbSection === "ALL" ? true : selectedSet.has(s)
+                      )
+                    }
+                    ref={(el) => {
+                      if (el) {
+                        const checked = filteredSections.every((s) =>
+                          qbSection === "ALL" ? true : selectedSet.has(s)
+                        );
+                        const some = filteredSections.some((s) =>
+                          qbSection === "ALL" ? true : selectedSet.has(s)
+                        );
+                        el.indeterminate = !checked && some;
+                      }
+                    }}
+                    onChange={(e) => {
+                      if (e.target.checked) selectAllFiltered();
+                      else deselectAllFiltered();
+                    }}
+                    style={{
+                      width: 15,
+                      height: 15,
+                      accentColor: "#ec4899",
+                      cursor: "pointer",
+                    }}
+                  />
+                  {secSearch.trim()
+                    ? `Select all "${secSearch}" (${filteredSections.length})`
+                    : isAllSelected
+                    ? "All selected"
+                    : `${checkedCount} of ${sectionOptions.length} selected`}
+                </label>
+                {!isAllSelected && (
+                  <button
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 10,
+                      color: "#ec4899",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "2px 6px",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => {
+                      setQbSection("ALL");
+                      setSecSearch("");
+                      setQbSelRow(null);
+                      setQbSelectedRows([]);
+                      setQbConfirm(false);
+                      setQbMoveMsg(null);
+                    }}
+                  >
+                    Reset All
+                  </button>
+                )}
+              </div>
+
+              {/* Checkbox list */}
+              <div
+                style={{
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  padding: "2px 0",
+                }}
+              >
+                {filteredSections.map((sec) => {
+                  const checked =
+                    qbSection === "ALL" ? true : selectedSet.has(sec);
+                  return (
+                    <label
+                      key={sec}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 6px",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        fontSize: 11,
+                        color: checked ? "#ec4899" : "var(--txt2)",
+                        background: checked ? "#ec489909" : "transparent",
+                        transition: "all 0.12s",
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSection(sec)}
+                        style={{
+                          width: 14,
+                          height: 14,
+                          accentColor: "#ec4899",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          fontWeight: checked ? 600 : 400,
+                        }}
+                        title={sec}
+                      >
+                        {sec}
+                      </span>
+                    </label>
+                  );
+                })}
+
+                {filteredSections.length === 0 && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--txt3)",
+                      padding: "4px 8px",
+                    }}
+                  >
+                    No sections match "{secSearch}"
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div style={{ marginBottom: 14 }}>
           <label className="lbl" style={{ display: "block", marginBottom: 6 }}>
@@ -618,6 +780,7 @@ export default function QueryBuilderInner({
                   <th>FIR No.</th>
                   <th>Station</th>
                   <th>Parties</th>
+                  <th>Section</th>
                   <th>Reg Date</th>
                   <th>Type</th>
                   <th>FIR Status</th>
@@ -718,6 +881,16 @@ export default function QueryBuilderInner({
                         }}
                       >
                         {r.pt || "—"}
+                      </td>
+                      <td
+                        style={{
+                          maxWidth: 120,
+                          wordBreak: "break-word",
+                          fontSize: 10,
+                          color: "var(--txt2)",
+                        }}
+                      >
+                        {r.sec || "—"}
                       </td>
                       <td className="mono" style={{ fontSize: 10 }}>
                         {r.dreg || "—"}
