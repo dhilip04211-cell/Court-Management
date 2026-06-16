@@ -168,6 +168,8 @@ export default function StatementTab({ db, smap }) {
   const [selYear, setSelYear] = useState(String(defaultYear));
   const [submitted, setSubmitted] = useState(false);
   const [filterYr, setFilterYr] = useState(null);
+  /* "As on Date" override — ISO yyyy-mm-dd. Empty string = use month-end (default). */
+  const [asOnDateStr, setAsOnDateStr] = useState("");
 
   const mm = parseInt(selMonth, 10);
   const yyyy = parseInt(selYear, 10);
@@ -176,10 +178,29 @@ export default function StatementTab({ db, smap }) {
   const prevMM = mm === 1 ? 12 : mm - 1;
   const prevYYYY = mm === 1 ? yyyy - 1 : yyyy;
   const prevEndDD = lastDay(prevYYYY, prevMM);
-  const thisEndDD = lastDay(yyyy, mm);
+  const thisEndDD = lastDay(yyyy, mm); // calendar month-end day (default "as on" day)
+
+  /* Bounds for the "As on Date" picker — must stay within the selected month */
+  const monthStartStr = `${yyyy}-${pad2(mm)}-01`;
+  const monthEndStr = `${yyyy}-${pad2(mm)}-${pad2(thisEndDD)}`;
+
+  /* Resolve the effective "as on" day: a custom date if chosen (and valid
+     for the selected month/year), otherwise the calendar month-end. */
+  const asOnParsed = (() => {
+    if (asOnDateStr) {
+      const m = asOnDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) {
+        const ay = Number(m[1]), am = Number(m[2]), ad = Number(m[3]);
+        if (ay === yyyy && am === mm) return { dd: ad, mm, yyyy };
+      }
+    }
+    return { dd: thisEndDD, mm, yyyy };
+  })();
+  const asOnNum = dateNum(asOnParsed);
+  const isCustomAsOn = asOnDateStr !== "" && asOnDateStr !== monthEndStr;
 
   const prevEnd = fmtDMY(prevEndDD, prevMM, prevYYYY);
-  const thisEnd = fmtDMY(thisEndDD, mm, yyyy);
+  const thisEnd = fmtDMY(asOnParsed.dd, mm, yyyy);
 
   /* numeric YYYYMMDD boundaries for fast comparison */
   const prevEndNum = prevYYYY * 10000 + prevMM * 100 + prevEndDD;
@@ -250,19 +271,19 @@ export default function StatementTab({ db, smap }) {
 
     const fromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
-      return p && p.mm === mm && p.yyyy === yyyy;
+      return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
     });
 
     const fromCnum = allCnum.filter(r => {
       const p = parseDateFlex(r.dr);
-      return p && p.mm === mm && p.yyyy === yyyy;
+      return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
     });
 
     const seen = new Set(fromPending.map(r => r.cr));
     const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
 
     return [...fromPending, ...extra];
-  }, [allFirs, allCnum, mm, yyyy, submitted]);
+  }, [allFirs, allCnum, mm, yyyy, asOnNum, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
@@ -277,10 +298,25 @@ export default function StatementTab({ db, smap }) {
   }, [allCnum, mm, yyyy, submitted]);
 
   /* ─────────────────────────────────────────────────────────────
-     PENDING (THIS MONTH END)
-     All FIRs currently in FIR Pending register (live count)
+     PENDING (THIS MONTH END / AS ON DATE)
+     FIRs currently in the FIR Pending register with Date Received
+     on or before the selected "as on" date.
   ───────────────────────────────────────────────────────────── */
-  const totalPending = allFirs.length;
+  const totalPending = useMemo(() => {
+    return allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p ? dateNum(p) <= asOnNum : true;
+    }).length;
+  }, [allFirs, asOnNum]);
+
+  /* FIRs received on/before the as-on date (the base set for the pending list
+     and exports — independent of the UI's year-filter chips). */
+  const pendingAsOf = useMemo(() => {
+    return allFirs.filter(r => {
+      const p = parseDateFlex(r.dr);
+      return p ? dateNum(p) <= asOnNum : true;
+    });
+  }, [allFirs, asOnNum]);
 
   /* ── Derived counts ── */
   // Special rule: May 2026 prev pending is a fixed constant (1590).
@@ -433,9 +469,11 @@ export default function StatementTab({ db, smap }) {
     totalPending, prevPendingCount, yyyy, thisEnd, prevEnd, COURT_NAME]);
 
   /* ── Month label strings ── */
-  const monthLabel = `${ordinal(thisEndDD)}.${pad2(mm)}.${yyyy}`;
+  const monthLabel = `${ordinal(asOnParsed.dd)}.${pad2(mm)}.${yyyy}`;
   const monthLabelFull = `${MON_NAMES[mm]} ${yyyy}`;
-  const fileLabel = `${pad2(mm)}_${yyyy}`;
+  const fileLabel = isCustomAsOn
+    ? `${pad2(asOnParsed.dd)}_${pad2(mm)}_${yyyy}`
+    : `${pad2(mm)}_${yyyy}`;
 
   /* ── Institution list sorted ── */
   const institutionSorted = useMemo(() => {
@@ -457,15 +495,15 @@ export default function StatementTab({ db, smap }) {
     });
   }, [disposalCases]);
 
-  /* ── Pending list (filterable by year) — live from FIR pending register ── */
+  /* ── Pending list (filterable by year) — FIRs received on/before the as-on date ── */
   const pendingFiltered = useMemo(() => {
-    const base = filterYr ? allFirs.filter(r => r.firYr === filterYr) : allFirs;
+    const base = filterYr ? pendingAsOf.filter(r => r.firYr === filterYr) : pendingAsOf;
     return [...base].sort((a, b) => {
       const ka = Number(a.firYr) * 100000 + parseInt(a.cr, 10);
       const kb = Number(b.firYr) * 100000 + parseInt(b.cr, 10);
       return ka - kb;
     });
-  }, [allFirs, filterYr]);
+  }, [pendingAsOf, filterYr]);
 
   /* ── Export handlers ── */
   function handleExportWord() {
@@ -499,7 +537,7 @@ export default function StatementTab({ db, smap }) {
         name: "Pending FIRs",
         aoa: [
           ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-          ...allFirs.map((r, i) =>
+          ...pendingAsOf.map((r, i) =>
             [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
         ],
       },
@@ -563,6 +601,7 @@ export default function StatementTab({ db, smap }) {
                 setSelMonth(e.target.value);
                 setSubmitted(false);
                 setFilterYr(null);
+                setAsOnDateStr("");
               }}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthNum = i + 1;
@@ -586,12 +625,37 @@ export default function StatementTab({ db, smap }) {
                 }
                 setSubmitted(false);
                 setFilterYr(null);
+                setAsOnDateStr("");
               }}>
               {buildYearOptions().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
+
+          {/* As on Date — optional override, defaults to month-end */}
+          <div className="fg">
+            <label className="lbl">As On Date</label>
+            <input
+              type="date"
+              className="inp"
+              min={monthStartStr}
+              max={monthEndStr}
+              value={asOnDateStr || monthEndStr}
+              onChange={e => {
+                setAsOnDateStr(e.target.value);
+                setSubmitted(false);
+                setFilterYr(null);
+              }}
+            />
+          </div>
+
+          {isCustomAsOn && (
+            <button className="btn btn-o btn-sm" style={{ marginBottom: 1 }}
+              onClick={() => { setAsOnDateStr(""); setSubmitted(false); }}>
+              ✕ Reset to Month End
+            </button>
+          )}
 
           <button className="btn btn-g" style={{ marginBottom: 1 }}
             onClick={() => { setSubmitted(true); setFilterYr(null); }}>
@@ -631,7 +695,7 @@ export default function StatementTab({ db, smap }) {
               <div className="stat-val" style={{ color: "var(--gold)" }}>
                 {institutionFirs.length}
               </div>
-              <div className="stat-sub">Received in {MON_SHORT[mm]} {yyyy}</div>
+              <div className="stat-sub">Received in {MON_SHORT[mm]} {yyyy}, up to {thisEnd}</div>
             </div>
             <div className="stat">
               <div className="stat-lbl">FIR Disposal (Finalized)</div>
@@ -641,9 +705,9 @@ export default function StatementTab({ db, smap }) {
               <div className="stat-sub">Case Numbered in {MON_SHORT[mm]} {yyyy}</div>
             </div>
             <div className="stat">
-              <div className="stat-lbl">Total Pending (This Month End)</div>
+              <div className="stat-lbl">Total Pending (As On {thisEnd})</div>
               <div className="stat-val">{totalPending}</div>
-              <div className="stat-sub">All FIRs in Pending Register (live)</div>
+              <div className="stat-sub">FIR Pending Register, Date Received ≤ {thisEnd}</div>
             </div>
           </div>
 
@@ -655,9 +719,9 @@ export default function StatementTab({ db, smap }) {
           }}>
             <strong style={{ color: "var(--txt1)" }}>📌 Calculation logic:</strong>
             &nbsp; {prevPendingFormula}
-            &nbsp;|&nbsp; Institution = FIRs received in {MON_SHORT[mm]} {yyyy}
-            &nbsp;|&nbsp; Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy}
-            &nbsp;|&nbsp; This Month Pending = live count from FIR Pending Register
+            &nbsp;|&nbsp; Institution = FIRs received in {MON_SHORT[mm]} {yyyy} only, with Date Received ≤ {thisEnd}
+            &nbsp;|&nbsp; Disposal = Case Numbered (dreg) in {MON_SHORT[mm]} {yyyy} (whole month)
+            &nbsp;|&nbsp; This Month Pending = FIR Pending Register filtered to Date Received ≤ {thisEnd}
           </div>
 
           {/* ── Disposal Statement Table ── */}
