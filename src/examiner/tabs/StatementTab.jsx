@@ -299,29 +299,33 @@ export default function StatementTab({ db, smap }) {
 const institutionFirs = useMemo(() => {
   if (!submitted) return [];
 
-  // 1. All FIRs received in selected month from FIR Pending Register
   const fromPending = allFirs.filter(r => {
     const p = parseDateFlex(r.dr);
     return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
   });
 
-  // 2. Case Numbered entries received in same month but NOT already present in FIR Pending
   const seen = new Set(fromPending.map(r => normFIR(r.cr)));
 
   const extraFromCnum = allCnum.filter(r => {
     if (!r.fn || !r.dr) return false;
-    
-    const p = parseDateFlex(r.dr);           // ← Confirmed: use dr, not dreg
-    return p && 
-           p.mm === mm && 
-           p.yyyy === yyyy && 
+    const p = parseDateFlex(r.dr);
+    return p &&
+           p.mm === mm &&
+           p.yyyy === yyyy &&
            dateNum(p) <= asOnNum &&
            !seen.has(normFIR(r.fn));
   });
 
+  // ✅ Moved inside — variables are in scope here
+  console.log(`Institution ${mm}/${yyyy} Breakdown:`, {
+    total: fromPending.length + extraFromCnum.length,
+    fromPending: fromPending.length,
+    extraFromCnum: extraFromCnum.length,
+    overlapPrevented: allCnum.filter(r => r.fn && seen.has(normFIR(r.fn))).length,
+  });
+
   const result = [...fromPending, ...extraFromCnum];
 
-  // Optional: Sort
   return result.sort((a, b) => {
     const na = a.cr || a.fn || "";
     const nb = b.cr || b.fn || "";
@@ -330,13 +334,6 @@ const institutionFirs = useMemo(() => {
     return ka - kb;
   });
 }, [allFirs, allCnum, mm, yyyy, asOnNum, submitted]);
-console.log(`Institution ${mm}/${yyyy} Breakdown:`, {
-  total: institutionFirs.length,
-  fromPending: fromPending.length,
-  extraFromCnum: extraFromCnum.length,
-  overlapPrevented: allCnum.filter(r => r.fn && seen.has(normFIR(r.fn))).length
-});
-
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
      CNum entries where dreg is within selected MM/YYYY
