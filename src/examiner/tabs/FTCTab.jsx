@@ -46,12 +46,29 @@ function caseTypeColor(ct) {
   return map[ct] || "var(--gold)";
 }
 
-// ── Auto-format date input "01062025" → "01.06.2025" ────────────
+// ── Auto-format date input → DD-MM-YYYY (hyphens) ───────────────
 function autoFormatDate(raw) {
   const digits = raw.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+}
+
+// parse DD-MM-YYYY (hyphens) or DD.MM.YYYY (dots) for QB date inputs
+function parseQbDate(str) {
+  if (!str) return null;
+  const s = str.toString().trim();
+  // support both - and . separators
+  const m = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})$/);
+  if (!m) return null;
+  return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`);
+}
+
+function handleQbDateInput(prev, raw) {
+  const clean = raw.replace(/[^\d-]/g, "");
+  // Allow backspace: if shrinking just return clean
+  if (clean.length < prev.replace(/[^\d-]/g, "").length) return clean;
+  return autoFormatDate(clean);
 }
 
 // ── Find which station a case belongs to ────────────────────────
@@ -259,7 +276,7 @@ export default function FTCTab({ db, setDb, tok, smap }) {
   const [qbStation, setQbStation]   = useState("ALL");
   const [qbCaseType, setQbCaseType] = useState("ALL");
   const [qbListType, setQbListType] = useState("ALL");
-  const [qbDateMode, setQbDateMode] = useState("none");
+  const [qbDateMode, setQbDateMode] = useState("between");
   const [qbDateA, setQbDateA]       = useState("");
   const [qbDateB, setQbDateB]       = useState("");
   const [qbResults, setQbResults]   = useState(null);
@@ -473,10 +490,9 @@ export default function FTCTab({ db, setDb, tok, smap }) {
     { value:"disposal", label:"Disposal", color:"#10b981" },
   ];
   const dateModeOptions = [
-    { value:"none",    label:"Any Date" },
     { value:"gt",      label:"After →" },
     { value:"lt",      label:"← Before" },
-    { value:"between", label:"Between" },
+    { value:"between", label:"Between ↔" },
   ];
 
   async function runQueryBuilder() {
@@ -503,14 +519,15 @@ export default function FTCTab({ db, setDb, tok, smap }) {
         return detectCaseType(cn) === qbCaseType;
       };
       const matchDate = (dreg) => {
-        if (qbDateMode === "none") return true;
         const d = parseDate(dreg);
-        if (!d) return false;
-        if (qbDateMode === "gt") { const ref = parseDate(qbDateA); return ref ? d > ref : true; }
-        if (qbDateMode === "lt") { const ref = parseDate(qbDateA); return ref ? d < ref : true; }
+        if (!d) return true; // no dreg → include
+        if (qbDateMode === "gt")  { const ref = parseQbDate(qbDateA); return ref ? d > ref  : true; }
+        if (qbDateMode === "lt")  { const ref = parseQbDate(qbDateA); return ref ? d < ref  : true; }
         if (qbDateMode === "between") {
-          const a = parseDate(qbDateA); const b = parseDate(qbDateB);
-          if (!a || !b) return true;
+          const a = parseQbDate(qbDateA); const b = parseQbDate(qbDateB);
+          if (!a && !b) return true;       // both empty → show all
+          if (a && !b)  return d >= a;
+          if (!a && b)  return d <= b;
           return d >= a && d <= b;
         }
         return true;
@@ -1086,23 +1103,54 @@ export default function FTCTab({ db, setDb, tok, smap }) {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label className="lbl" style={{ display: "block", marginBottom: 6 }}>Date of Registration</label>
+              <label className="lbl" style={{ display: "block", marginBottom: 6 }}>
+                Date of Registration
+                <span style={{ marginLeft: 8, fontWeight: 400, color: "var(--txt3)", fontSize: 9, textTransform: "none", letterSpacing: 0 }}>(DD-MM-YYYY — hyphens auto-inserted)</span>
+              </label>
               <PillGroup value={qbDateMode}
                 onChange={v => { setQbDateMode(v); setQbDateA(""); setQbDateB(""); setQbResults(null); setQbSelectedRows([]); setQbSelRow(null); setQbMsg(null); }}
                 options={dateModeOptions} />
               {(qbDateMode === "gt" || qbDateMode === "lt") && (
                 <div style={{ marginTop: 8 }}>
-                  <input className="inp vt-mono" type="text" placeholder="dd.mm.yyyy"
-                    value={qbDateA} onChange={e => setQbDateA(e.target.value)} style={{ maxWidth: 140 }} />
+                  <input
+                    className="inp vt-mono"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD-MM-YYYY"
+                    value={qbDateA}
+                    maxLength={10}
+                    onChange={e => setQbDateA(handleQbDateInput(qbDateA, e.target.value))}
+                    style={{ maxWidth: 150 }}
+                  />
                 </div>
               )}
               {qbDateMode === "between" && (
-                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-                  <input className="inp vt-mono" type="text" placeholder="From dd.mm.yyyy"
-                    value={qbDateA} onChange={e => setQbDateA(e.target.value)} style={{ flex: 1 }} />
-                  <span style={{ color: "var(--txt3)", fontSize: 11 }}>—</span>
-                  <input className="inp vt-mono" type="text" placeholder="To dd.mm.yyyy"
-                    value={qbDateB} onChange={e => setQbDateB(e.target.value)} style={{ flex: 1 }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 120 }}>
+                    <span style={{ fontSize: 9, color: "var(--txt3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>From</span>
+                    <input
+                      className="inp vt-mono"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="DD-MM-YYYY"
+                      value={qbDateA}
+                      maxLength={10}
+                      onChange={e => setQbDateA(handleQbDateInput(qbDateA, e.target.value))}
+                    />
+                  </div>
+                  <span style={{ color: "var(--txt3)", fontSize: 18, paddingTop: 18 }}>→</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 120 }}>
+                    <span style={{ fontSize: 9, color: "var(--txt3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>To</span>
+                    <input
+                      className="inp vt-mono"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="DD-MM-YYYY"
+                      value={qbDateB}
+                      maxLength={10}
+                      onChange={e => setQbDateB(handleQbDateInput(qbDateB, e.target.value))}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1139,6 +1187,42 @@ export default function FTCTab({ db, setDb, tok, smap }) {
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--grn)11", border: "1px solid var(--grn)44", display: "inline-block" }} />
                   FIR present — ready to move
                 </div>
+              </div>
+
+              {/* Select-all bar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 8px", borderBottom: "1px solid var(--bdr)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 12, color: "var(--txt2)", userSelect: "none" }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: 16, height: 16, accentColor: "var(--gold)", cursor: "pointer" }}
+                    checked={qbResults.length > 0 && qbSelectedRows.length === qbResults.length}
+                    ref={el => { if (el) el.indeterminate = qbSelectedRows.length > 0 && qbSelectedRows.length < qbResults.length; }}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setQbSelectedRows([...qbResults]);
+                        setQbSelRow(qbResults[qbResults.length - 1] || null);
+                      } else {
+                        setQbSelectedRows([]);
+                        setQbSelRow(null);
+                        setQbConfirm(false);
+                        setQbMoveMsg(null);
+                      }
+                    }}
+                  />
+                  {qbSelectedRows.length === qbResults.length && qbResults.length > 0
+                    ? `All ${qbResults.length} selected`
+                    : qbSelectedRows.length > 0
+                      ? `${qbSelectedRows.length} of ${qbResults.length} selected`
+                      : `Select all ${qbResults.length}`}
+                </label>
+                {qbSelectedRows.length > 0 && (
+                  <button
+                    style={{ marginLeft: "auto", fontSize: 11, color: "var(--txt3)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                    onClick={() => { setQbSelectedRows([]); setQbSelRow(null); setQbConfirm(false); setQbMoveMsg(null); }}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
 
               <div className="tbl-wrap">
@@ -1241,25 +1325,91 @@ export default function FTCTab({ db, setDb, tok, smap }) {
 
           {qbSelectedRows.length > 0 && (
             <div className="card" style={{ margin: "12px 14px 0", border: "1.5px solid var(--gold)55" }}>
-              <div className="ctitle" style={{ color: "var(--gold)" }}>
+              <div className="ctitle" style={{ color: "var(--gold)", marginBottom: 10 }}>
                 📦 Bulk Selection
+                <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 11, color: "var(--txt3)" }}>
+                  {qbSelectedRows.length} case{qbSelectedRows.length !== 1 ? "s" : ""} selected
+                </span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                <div style={{ fontSize: 13, color: "var(--txt2)", minWidth: 180 }}>
-                  {qbSelectedRows.length} case{qbSelectedRows.length !== 1 ? "s" : ""} selected.
-                </div>
+
+              {/* Selected cases list with individual remove */}
+              <div style={{
+                display: "flex", flexDirection: "column", gap: 5,
+                maxHeight: 240, overflowY: "auto", marginBottom: 12,
+                border: "1px solid var(--bdr)", borderRadius: 8, padding: "6px 8px",
+              }}>
+                {qbSelectedRows.map((row, idx) => {
+                  const ct = detectCaseType(row.cn);
+                  const firOk = rowFIRExists(row);
+                  return (
+                    <div key={getQbRowKey(row)} style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "5px 8px", borderRadius: 6,
+                      background: firOk ? "var(--grn)09" : "var(--red)09",
+                      border: `1px solid ${firOk ? "var(--grn)33" : "var(--red)33"}`,
+                    }}>
+                      <span style={{ fontSize: 10, color: "var(--txt3)", minWidth: 18, flexShrink: 0 }}>{idx + 1}.</span>
+                      {ct && (
+                        <span style={{
+                          padding: "1px 5px", borderRadius: 6, fontSize: 9,
+                          background: caseTypeColor(ct) + "22", color: caseTypeColor(ct),
+                          border: `1px solid ${caseTypeColor(ct)}55`, fontWeight: 800, flexShrink: 0,
+                        }}>{ct}</span>
+                      )}
+                      <span className="mono" style={{ fontSize: 11, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {row.cn || "—"}
+                      </span>
+                      <span className="mono" style={{ fontSize: 10, color: "var(--gold)", flexShrink: 0 }}>{row.fn || ""}</span>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 6,
+                        background: firOk ? "var(--grn)18" : "var(--red)18",
+                        color: firOk ? "var(--grn)" : "var(--red)",
+                        border: `1px solid ${firOk ? "var(--grn)44" : "var(--red)44"}`,
+                        flexShrink: 0,
+                      }}>{firOk ? "✓" : "⛔"}</span>
+                      <button
+                        title="Remove from selection"
+                        onClick={() => {
+                          const next = qbSelectedRows.filter((_, i) => i !== idx);
+                          setQbSelectedRows(next);
+                          if (qbSelRow && getQbRowKey(qbSelRow) === getQbRowKey(row)) {
+                            setQbSelRow(next.length ? next[next.length - 1] : null);
+                            setQbConfirm(false);
+                            setQbMoveMsg(null);
+                          }
+                        }}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "var(--txt3)", fontSize: 14, padding: "0 2px",
+                          lineHeight: 1, flexShrink: 0,
+                        }}
+                      >✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <button className="vt-btn vt-btn-ghost" style={{ flex: "0 0 auto" }}
                   onClick={() => { setQbSelectedRows([]); setQbSelRow(null); setQbConfirm(false); setQbMoveMsg(null); }}>
-                  Clear selection
+                  Clear All
                 </button>
                 <button className="ftc-execute-btn" style={{ flex: "1 1 220px" }}
                   onClick={executeQbBulkMove}
                   disabled={qbBusy || qbSelectedRows.length === 0}>
-                  {qbBusy ? "⏳ Processing…" : "✅ Bulk Move Selected Cases"}
+                  {qbBusy ? "⏳ Processing…" : `✅ Move ${qbSelectedRows.length} Case${qbSelectedRows.length !== 1 ? "s" : ""} to Case Numbered`}
                 </button>
               </div>
-              <div style={{ marginTop: 10, fontSize: 11, color: "var(--txt3)" }}>
-                Cases that already exist in the Case Numbered register are excluded from this query.
+
+              {qbMoveMsg && (
+                <div className={`et-msg et-msg-${qbMoveMsg.type === "ok" ? "ok" : qbMoveMsg.type === "err" ? "err" : "info"}`}
+                  style={{ marginTop: 10 }}>
+                  {qbMoveMsg.text}
+                </div>
+              )}
+
+              <div style={{ marginTop: 8, fontSize: 10, color: "var(--txt3)" }}>
+                ⛔ = FIR missing (add first) &nbsp;|&nbsp; ✓ = FIR present (ready to move)
               </div>
             </div>
           )}
