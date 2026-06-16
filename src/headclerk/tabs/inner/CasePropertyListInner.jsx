@@ -1,10 +1,8 @@
 import { useState, useMemo } from "react";
-import CaseDetail from "../../../examiner/components/CaseDetail.jsx";
 
 export default function CasePropertyListInner({ db }) {
   const [searchText, setSearchText] = useState("");
   const [selectedStation, setSelectedStation] = useState("ALL");
-  const [expandedId, setExpandedId] = useState(null);
   
   // Pagination/limit state
   const [displayLimit, setDisplayLimit] = useState(50);
@@ -63,10 +61,6 @@ export default function CasePropertyListInner({ db }) {
   const visibleList = filteredList.slice(0, displayLimit);
   const hasMore = filteredList.length > displayLimit;
 
-  function handleRowClick(rowId) {
-    setExpandedId(expandedId === rowId ? null : rowId);
-  }
-
   function handleLoadMore() {
     setDisplayLimit(prev => prev + 50);
   }
@@ -85,7 +79,7 @@ export default function CasePropertyListInner({ db }) {
               type="text"
               value={searchText}
               onChange={e => handleFilterChange(() => setSearchText(e.target.value))}
-              placeholder="Search by RP No, Case No, FIR, Description..."
+              placeholder="Search by RP No, Case No, FIR, Description, Remarks..."
             />
           </div>
           
@@ -113,66 +107,58 @@ export default function CasePropertyListInner({ db }) {
         </span>
       </div>
 
-      {/* ── Results Table ── */}
+      {/* ── Results Table (Excel Style) ── */}
       {filteredList.length > 0 ? (
         <div className="vt-panel" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table className="qb-table">
+          <div className="abs-tbl-wrap" style={{ overflowX: "auto" }}>
+            <table className="abs-tbl" style={{ tableLayout: "auto", width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr>
-                  <th style={{ width: "60px", textAlign: "center" }}>S.No</th>
-                  <th style={{ width: "120px" }}>RP Number</th>
-                  <th style={{ width: "140px" }}>Case Number</th>
-                  <th style={{ width: "120px" }}>FIR Number</th>
-                  <th>Police Station</th>
-                  <th>Description</th>
-                  <th style={{ width: "80px", textAlign: "center" }}>View</th>
+                <tr style={{ background: "var(--bg3)" }}>
+                  <th style={{ width: "60px", textAlign: "center", border: "1px solid var(--bdr)" }}>S.No</th>
+                  <th style={{ width: "120px", border: "1px solid var(--bdr)" }}>RP Number</th>
+                  <th style={{ width: "140px", border: "1px solid var(--bdr)" }}>Case Number</th>
+                  <th style={{ width: "120px", border: "1px solid var(--bdr)" }}>FIR Number</th>
+                  <th style={{ width: "180px", border: "1px solid var(--bdr)" }}>Police Station</th>
+                  <th style={{ minWidth: "220px", border: "1px solid var(--bdr)" }}>Description</th>
+                  <th style={{ minWidth: "220px", border: "1px solid var(--bdr)" }}>Remarks</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleList.map((r, i) => {
-                  const rowId = `nv-list-${r.ri}-${i}`;
-                  const isExpanded = expandedId === rowId;
-                  
-                  return (
-                    <option key={rowId} style={{ display: "contents" }}>
-                      <tr 
-                        className={`qb-row${isExpanded ? " qb-row-selected" : ""}`}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => handleRowClick(rowId)}
-                      >
-                        <td style={{ textAlign: "center", color: "var(--txt3)" }}>{i + 1}</td>
-                        <td className="mono" style={{ color: "var(--c-amber)", fontWeight: 600 }}>
-                          {r.rp || "—"}
-                        </td>
-                        <td className="mono">{r.cn || "—"}</td>
-                        <td className="mono">{r.fn || "—"}</td>
-                        <td>{r.sta || "—"}</td>
-                        <td style={{ 
-                          maxWidth: "280px", 
-                          whiteSpace: "nowrap", 
-                          overflow: "hidden", 
-                          textOverflow: "ellipsis",
-                          color: "var(--txt2)"
-                        }}>
-                          {r.desc || "—"}
-                        </td>
-                        <td style={{ textAlign: "center", fontSize: "14px" }}>
-                          {isExpanded ? "▲" : "▼"}
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={7} style={{ background: "var(--bg3)", padding: 16 }}>
-                            <div className="hc-list-expanded-detail" onClick={e => e.stopPropagation()}>
-                              <CaseDetail r={r} srcKey="nv" />
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </option>
-                  );
-                })}
+                {visibleList.map((r, i) => (
+                  <tr 
+                    key={`nv-row-${r.ri}-${i}`} 
+                    className="qb-row"
+                    style={{ borderBottom: "1px solid var(--bdr)" }}
+                  >
+                    <td style={{ textAlign: "center", color: "var(--txt3)", border: "1px solid var(--bdr)" }}>{i + 1}</td>
+                    <td className="mono" style={{ color: "var(--c-amber)", fontWeight: 600, border: "1px solid var(--bdr)" }}>
+                      {r.rp || "—"}
+                    </td>
+                    <td className="mono" style={{ border: "1px solid var(--bdr)" }}>{r.cn || "—"}</td>
+                    <td className="mono" style={{ border: "1px solid var(--bdr)" }}>{r.fn || "—"}</td>
+                    <td style={{ border: "1px solid var(--bdr)" }}>{r.sta || "—"}</td>
+                    <td style={{ 
+                      whiteSpace: "normal", 
+                      wordBreak: "break-word", 
+                      color: "var(--txt)",
+                      border: "1px solid var(--bdr)",
+                      fontSize: "12px",
+                      lineHeight: "1.4"
+                    }}>
+                      {r.desc || "—"}
+                    </td>
+                    <td style={{ 
+                      whiteSpace: "normal", 
+                      wordBreak: "break-word", 
+                      color: "var(--txt2)",
+                      border: "1px solid var(--bdr)",
+                      fontSize: "12px",
+                      lineHeight: "1.4"
+                    }}>
+                      {r.rem || "—"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
