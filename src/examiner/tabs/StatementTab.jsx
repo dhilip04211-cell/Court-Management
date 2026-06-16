@@ -292,25 +292,50 @@ export default function StatementTab({ db, smap }) {
 
      FIX 2 applied here as well.
   ───────────────────────────────────────────────────────────── */
-  const institutionFirs = useMemo(() => {
-    if (!submitted) return [];
+/* ─────────────────────────────────────────────────────────────
+   INSTITUTION (ADDED THIS MONTH) — FIXED
+   Uses Date Received (dr) for both FIR Pending and Case Numbered
+───────────────────────────────────────────────────────────── */
+const institutionFirs = useMemo(() => {
+  if (!submitted) return [];
 
-    const fromPending = allFirs.filter(r => {
-      const p = parseDateFlex(r.dr);
-      return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
-    });
+  // 1. All FIRs received in selected month from FIR Pending Register
+  const fromPending = allFirs.filter(r => {
+    const p = parseDateFlex(r.dr);
+    return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
+  });
 
-    const fromCnum = allCnum.filter(r => {
-      const p = parseDateFlex(r.dr);
-      return p && p.mm === mm && p.yyyy === yyyy && dateNum(p) <= asOnNum;
-    });
+  // 2. Case Numbered entries received in same month but NOT already present in FIR Pending
+  const seen = new Set(fromPending.map(r => normFIR(r.cr)));
 
-    /* FIX 2: normalised dedup */
-    const seen = new Set(fromPending.map(r => normFIR(r.cr)));
-    const extra = fromCnum.filter(r => r.fn && !seen.has(normFIR(r.fn)));
+  const extraFromCnum = allCnum.filter(r => {
+    if (!r.fn || !r.dr) return false;
+    
+    const p = parseDateFlex(r.dr);           // ← Confirmed: use dr, not dreg
+    return p && 
+           p.mm === mm && 
+           p.yyyy === yyyy && 
+           dateNum(p) <= asOnNum &&
+           !seen.has(normFIR(r.fn));
+  });
 
-    return [...fromPending, ...extra];
-  }, [allFirs, allCnum, mm, yyyy, asOnNum, submitted]);
+  const result = [...fromPending, ...extraFromCnum];
+
+  // Optional: Sort
+  return result.sort((a, b) => {
+    const na = a.cr || a.fn || "";
+    const nb = b.cr || b.fn || "";
+    const ka = Number(firYear(na)) * 100000 + parseInt(na.replace(/\D/g, ''), 10);
+    const kb = Number(firYear(nb)) * 100000 + parseInt(nb.replace(/\D/g, ''), 10);
+    return ka - kb;
+  });
+}, [allFirs, allCnum, mm, yyyy, asOnNum, submitted]);
+console.log(`Institution ${mm}/${yyyy} Breakdown:`, {
+  total: institutionFirs.length,
+  fromPending: fromPending.length,
+  extraFromCnum: extraFromCnum.length,
+  overlapPrevented: allCnum.filter(r => r.fn && seen.has(normFIR(r.fn))).length
+});
 
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
