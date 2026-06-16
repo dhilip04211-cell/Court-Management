@@ -444,7 +444,309 @@ Please refresh the page and try again.`),p(`error`)})),()=>{b.current&&clearTime
     background: currentColor;
     flex-shrink: 0;
   }
-`;if(typeof document<`u`&&!document.getElementById(`examiner-css`)){let e=document.createElement(`style`);e.id=`examiner-css`,e.textContent=Ca,document.head.appendChild(e)}var wa=s({AuthPrompt:()=>Ta});function Ta({onSignIn:e}){return(0,C.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,alignItems:`center`,gap:14,padding:`50px 20px`,textAlign:`center`},children:[(0,C.jsx)(`div`,{style:{fontSize:32},children:`🔐`}),(0,C.jsx)(`div`,{style:{fontSize:16,fontWeight:700,color:`var(--gold)`},children:`Authentication Required`}),(0,C.jsx)(`div`,{style:{fontSize:13,color:`var(--txt2)`,maxWidth:360},children:`Sign in with Google to access FIR records.`}),(0,C.jsx)(`button`,{className:`btn btn-g`,onClick:e,children:`Sign in with Google`})]})}var Ea=Object.assign({"./AuthContext.jsx":S,"./Ecourt/ECourt.jsx":M,"./LoginPage.jsx":rr,"./ProtectedRoute.jsx":or,"./examiner/Examiner.jsx":ga,"./examiner/components/AuthPrompt.jsx":wa,"./examiner/components/CaseDetail.jsx":Jr,"./examiner/components/SectionBuilder.jsx":Rr,"./examiner/components/StationYearMatrix.jsx":Zi,"./examiner/tabs/AbstractTab.jsx":ca,"./examiner/tabs/EntryTab.jsx":Br,"./examiner/tabs/FTCTab.jsx":yi,"./examiner/tabs/ViewerTab.jsx":Xr,"./examiner/tabs/inner/AbstractInner.jsx":$i,"./examiner/tabs/inner/MaintenanceInner.jsx":aa,"./examiner/tabs/inner/PendingFIRInner.jsx":na,"./examiner/tabs/inner/StatementTab.jsx":ji,"./examiner/tabs/inner/ftc/AddFIRModal.jsx":Qr,"./examiner/tabs/inner/ftc/CaseNumberedInner.jsx":ci,"./examiner/tabs/inner/ftc/MoveFIRInner.jsx":ti,"./examiner/tabs/inner/ftc/OtherReasonsInner.jsx":oi,"./examiner/tabs/inner/ftc/QueryBuilderInner.jsx":pi,"./headclerk/Dashboard.jsx":s({}),"./main.jsx":Ba,"./mc/Mc.jsx":s({}),"./rc/Rc.jsx":s({})}),Da=[{title:`Head Clerk`,route:`/headclerk/dashboard`,icon:`👨‍💼`,color:`#D4AF37`},{title:`MC Section`,route:`/mc/mc`,icon:`⚖️`,color:`#4CAF50`},{title:`Examiner`,route:`/examiner/examiner`,icon:`📋`,color:`#2196F3`},{title:`RC Section`,route:`/rc/rc`,icon:`📁`,color:`#9C27B0`}],Oa=[`App.jsx`,`main.jsx`,`AuthContext.jsx`,`LoginPage.jsx`,`ProtectedRoute.jsx`],ka=(0,v.createContext)({theme:`dark`,toggleTheme:()=>{}}),Aa=()=>(0,v.useContext)(ka);function ja({children:e}){let[t,n]=(0,v.useState)(()=>{let e=localStorage.getItem(`court_theme`);return e===`night`?`dark`:e===`day`?`light`:e||`dark`});return(0,C.jsx)(ka.Provider,{value:{theme:t,toggleTheme:()=>n(e=>{let t=e===`dark`?`light`:`dark`;return localStorage.setItem(`court_theme`,t),t})},children:e})}function Ma(){let e=new Set;return Object.entries(Ea).filter(([e])=>!Oa.some(t=>e.includes(t))).map(([t,n])=>{let r=t.replace(`./`,`/`).replace(/\.jsx$/,``).toLowerCase();if(r.endsWith(`/index`)&&(r=r.replace(`/index`,``)),e.has(r))return null;e.add(r);let i=n.default;return i?(0,C.jsx)(Kt,{path:r,element:(0,C.jsx)(sr,{children:(0,C.jsx)(i,{})})},r):null}).filter(Boolean)}function Na(){let{theme:e}=Aa(),t=e===`dark`;return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`div`,{className:`hero`,children:[(0,C.jsx)(`h1`,{style:{color:t?`#f1f5f9`:`#1a1a18`},children:`⚖️ Court Management`}),(0,C.jsx)(`p`,{style:{color:t?`#94a3b8`:`#6b7280`},children:`Court Office Management Dashboard`})]}),(0,C.jsx)(`div`,{className:`card-grid`,children:Da.map((t,n)=>(0,C.jsxs)(zn,{to:t.route,className:`dashboard-card`,"data-theme":e,children:[(0,C.jsx)(`div`,{className:`card-icon`,style:{color:t.color},children:t.icon}),(0,C.jsx)(`h2`,{children:t.title})]},n))})]})}function Pa({mobile:e=!1}){let{theme:t,toggleTheme:n}=Aa(),r=t===`dark`;return(0,C.jsxs)(`button`,{className:e?`theme-toggle-mobile`:`theme-toggle`,onClick:n,title:r?`Switch to Day Mode`:`Switch to Night Mode`,children:[(0,C.jsx)(`span`,{className:`theme-icon`,children:r?`☀️`:`🌙`}),(0,C.jsx)(`span`,{className:`theme-label`,children:r?`Day`:`Night`})]})}function Fa({mobileMenu:e,setMobileMenu:t}){let{user:n,logout:r}=T(),{theme:i}=Aa(),a=bt(),o=()=>{r(),a(`/login`,{replace:!0})};return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`nav`,{className:`navbar`,"data-theme":i,children:[(0,C.jsx)(`div`,{className:`nav-mobile-spacer`}),(0,C.jsx)(zn,{to:`/`,className:`logo`,"data-theme":i,children:`⚖️ Court CMS`}),(0,C.jsx)(`div`,{className:`nav-menu`,children:Da.map((e,t)=>(0,C.jsxs)(zn,{to:e.route,className:`nav-link`,"data-theme":i,children:[e.icon,` `,e.title]},t))}),(0,C.jsxs)(`div`,{className:`nav-right`,children:[(0,C.jsx)(Pa,{}),n&&(0,C.jsxs)(C.Fragment,{children:[n.picture?(0,C.jsx)(`img`,{src:n.picture,alt:``,className:`user-avatar`}):(0,C.jsxs)(`span`,{className:`user-badge`,"data-theme":i,children:[n.icon,` `,n.label]}),(0,C.jsx)(`button`,{className:`logout-btn`,onClick:o,children:`Sign Out`})]}),(0,C.jsx)(`button`,{className:`menu-btn`,"data-theme":i,onClick:()=>t(e=>!e),"aria-label":`Toggle menu`,children:e?`✕`:`☰`})]})]}),e&&(0,C.jsxs)(`div`,{className:`mobile-menu`,"data-theme":i,children:[Da.map((e,n)=>(0,C.jsxs)(zn,{to:e.route,onClick:()=>t(!1),children:[e.icon,` `,e.title]},n)),(0,C.jsx)(Pa,{mobile:!0}),n&&(0,C.jsxs)(`button`,{className:`mobile-logout`,onClick:()=>{t(!1),o()},children:[`🚪 Sign Out (`,n.label,`)`]})]})]})}function Ia({children:e}){let[t,n]=(0,v.useState)(!1),{theme:r}=Aa();return(0,C.jsxs)(`div`,{className:`app`,"data-theme":r,children:[(0,C.jsx)(Fa,{mobileMenu:t,setMobileMenu:n}),(0,C.jsx)(`div`,{className:`content`,children:e})]})}function La(){return(0,C.jsxs)(Jt,{children:[(0,C.jsx)(Kt,{path:`/login`,element:(0,C.jsx)(ir,{})}),(0,C.jsx)(Kt,{path:`/`,element:(0,C.jsx)(sr,{children:(0,C.jsx)(Ia,{children:(0,C.jsx)(Na,{})})})}),Ma().map(e=>v.cloneElement(e,{element:(0,C.jsx)(Ia,{children:e.props.element})})),(0,C.jsx)(Kt,{path:`*`,element:(0,C.jsx)(Gt,{to:`/`,replace:!0})})]})}function Ra(){return(0,C.jsx)(ja,{children:(0,C.jsx)(j,{children:(0,C.jsxs)(In,{children:[(0,C.jsx)(za,{}),(0,C.jsx)(La,{})]})})})}function za(){return(0,C.jsx)(`style`,{children:`
+`;if(typeof document<`u`&&!document.getElementById(`examiner-css`)){let e=document.createElement(`style`);e.id=`examiner-css`,e.textContent=Ca,document.head.appendChild(e)}var wa=s({AuthPrompt:()=>Ta});function Ta({onSignIn:e}){return(0,C.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,alignItems:`center`,gap:14,padding:`50px 20px`,textAlign:`center`},children:[(0,C.jsx)(`div`,{style:{fontSize:32},children:`🔐`}),(0,C.jsx)(`div`,{style:{fontSize:16,fontWeight:700,color:`var(--gold)`},children:`Authentication Required`}),(0,C.jsx)(`div`,{style:{fontSize:13,color:`var(--txt2)`,maxWidth:360},children:`Sign in with Google to access FIR records.`}),(0,C.jsx)(`button`,{className:`btn btn-g`,onClick:e,children:`Sign in with Google`})]})}var Ea=s({default:()=>Da});function Da({db:e,SMAP:t}){let[n,r]=(0,v.useState)(`rp`),[i,a]=(0,v.useState)(``),[o,s]=(0,v.useState)(new Date().getFullYear().toString()),[c,l]=(0,v.useState)(!1),[u,d]=(0,v.useState)([]),[f,p]=(0,v.useState)([]),[m,h]=(0,v.useState)(null),g=o?`${i}/${o}`:i;function _(){let r=i.trim(),a=o.trim();if(!r)return;l(!0),h(null);let s=String(parseInt(r,10)||r),c=a;if(n===`rp`)d((e?.nv||[]).filter(e=>{if(!e.rp)return!1;let t=e.rp.toString().trim().split(`/`),n=String(parseInt(t[0],10)||t[0]),r=t[1]?t[1].trim():``;return n===s?!c||!r?!0:(r.length===2?`20${r}`:r)===(c.length===2?`20${c}`:c):!1})),p([]);else{let n=new Set;if((e?.nv||[]).forEach(e=>{gr(e.fn,s,c)&&e.sta&&n.add(e.sta)}),e?.fir){for(let[r,i]of Object.entries(e.fir))if(i.some(e=>!!(gr(e.cr,s,c)||c&&gr(e.cr,`${s}/${c}`,``)))){let e=t.find(e=>e.sh===r);e?.lb&&n.add(e.lb)}}let r=Array.from(n);p(r),r.length===1?(h(r[0]),y(s,c,r[0])):d([])}}function y(t,n,r){d((e?.nv||[]).filter(e=>{if(!gr(e.fn,t,n)||!e.sta||!r)return!1;let i=e.sta.toLowerCase().trim(),a=r.toLowerCase().trim();return i===a||i.includes(a)||a.includes(i)}))}function b(e){h(e);let t=i.trim(),n=o.trim();y(String(parseInt(t,10)||t),n,e)}function x(){a(``),s(new Date().getFullYear().toString()),l(!1),d([]),p([]),h(null)}return(0,C.jsxs)(`div`,{className:`hc-viewer-root`,children:[(0,C.jsxs)(`div`,{className:`vt-search-card`,children:[(0,C.jsxs)(`div`,{className:`hc-tab-toggles`,children:[(0,C.jsx)(`button`,{className:`hc-toggle-btn${n===`rp`?` hc-toggle-btn-active`:``}`,onClick:()=>{r(`rp`),x()},children:`📦 RP No. & Year`}),(0,C.jsx)(`button`,{className:`hc-toggle-btn${n===`fir`?` hc-toggle-btn-active`:``}`,onClick:()=>{r(`fir`),x()},children:`📋 FIR No. & Year`})]}),(0,C.jsxs)(`div`,{className:`vt-search-row`,style:{marginTop:16},children:[(0,C.jsxs)(`div`,{className:`vt-fg vt-fg-grow`,children:[(0,C.jsx)(`label`,{className:`vt-lbl`,children:n===`rp`?`RP Number`:`FIR Number`}),(0,C.jsx)(`input`,{className:`vt-inp vt-mono`,type:`tel`,inputMode:`numeric`,value:i,onChange:e=>{a(e.target.value.replace(/\D/g,``)),l(!1)},onKeyDown:e=>e.key===`Enter`&&_(),placeholder:`e.g. 12`})]}),(0,C.jsxs)(`div`,{className:`vt-fg`,style:{flex:`0 0 90px`},children:[(0,C.jsx)(`label`,{className:`vt-lbl`,children:`Year`}),(0,C.jsx)(`input`,{className:`vt-inp vt-mono`,type:`tel`,inputMode:`numeric`,value:o,onChange:e=>{s(e.target.value.replace(/\D/g,``).slice(0,4)),l(!1)},onKeyDown:e=>e.key===`Enter`&&_(),placeholder:`e.g. 2026`})]}),(0,C.jsxs)(`div`,{className:`vt-search-actions`,children:[(0,C.jsx)(`button`,{className:`vt-btn vt-btn-primary`,onClick:_,style:{minWidth:90},children:`Search`}),c&&(0,C.jsx)(`button`,{className:`vt-btn vt-btn-ghost`,onClick:x,children:`✕`})]})]})]}),c&&n===`rp`&&u.length===0&&(0,C.jsxs)(`div`,{className:`vt-empty`,children:[(0,C.jsx)(`div`,{className:`vt-empty-icon`,children:`📦`}),(0,C.jsx)(`div`,{className:`vt-empty-title`,children:`No properties found`}),(0,C.jsxs)(`div`,{className:`vt-empty-sub`,children:[`for RP Number `,(0,C.jsx)(`span`,{className:`vt-gold`,children:g})]})]}),c&&n===`fir`&&f.length===0&&(0,C.jsxs)(`div`,{className:`vt-empty`,children:[(0,C.jsx)(`div`,{className:`vt-empty-icon`,children:`📋`}),(0,C.jsx)(`div`,{className:`vt-empty-title`,children:`No records found`}),(0,C.jsxs)(`div`,{className:`vt-empty-sub`,children:[`for FIR Number `,(0,C.jsx)(`span`,{className:`vt-gold`,children:g})]})]}),c&&n===`fir`&&f.length>0&&(0,C.jsxs)(`div`,{className:`hc-resolver-section`,children:[(0,C.jsxs)(`div`,{className:`hc-resolver-title`,children:[`📍 Select Police Station for FIR `,(0,C.jsx)(`span`,{className:`vt-gold`,children:g})]}),(0,C.jsx)(`div`,{className:`vt-chip-row`,style:{marginTop:12},children:f.map(e=>(0,C.jsx)(`button`,{className:`vt-chip vt-chip-case${m===e?` vt-chip-active-case`:``}`,onClick:()=>b(e),children:(0,C.jsx)(`span`,{className:`vt-chip-label`,children:e})},e))})]}),c&&(n===`rp`||m)&&(0,C.jsx)(`div`,{className:`hc-results-section`,style:{marginTop:24},children:u.length>0?(0,C.jsxs)(`div`,{className:`vt-panel vt-panel-nv`,children:[(0,C.jsxs)(`div`,{className:`vt-panel-heading`,children:[(0,C.jsx)(`span`,{className:`vt-panel-title`,children:n===`rp`?`RP Record: ${g}`:`${m} - FIR ${g}`}),(0,C.jsxs)(`span`,{className:`vt-tag vt-tag-amber`,children:[u.length,` Property Item`,u.length>1?`s`:``]})]}),(0,C.jsx)(`div`,{style:{display:`grid`,gap:16,marginTop:16},children:u.map((e,t)=>(0,C.jsx)(Yr,{r:e,srcKey:`nv`},t))})]}):m&&(0,C.jsxs)(`div`,{className:`vt-empty`,children:[(0,C.jsx)(`div`,{className:`vt-empty-icon`,children:`🏷️`}),(0,C.jsx)(`div`,{className:`vt-empty-title`,children:`No Property details recorded`}),(0,C.jsxs)(`div`,{className:`vt-empty-sub`,children:[`for FIR `,(0,C.jsx)(`span`,{className:`vt-gold`,children:g}),` at `,(0,C.jsx)(`span`,{className:`vt-gold`,children:m})]})]})})]})}var Oa=s({default:()=>ka});function ka({db:e}){let[t,n]=(0,v.useState)(``),[r,i]=(0,v.useState)(`ALL`),[a,o]=(0,v.useState)(null),[s,c]=(0,v.useState)(50),l=(0,v.useMemo)(()=>{let t=new Set;return(e?.nv||[]).forEach(e=>{e.sta&&t.add(e.sta.trim())}),[`ALL`,...Array.from(t).sort()]},[e?.nv]),u=(0,v.useMemo)(()=>{let n=e?.nv||[],i=t.toLowerCase().trim();return n.filter(e=>{if(r!==`ALL`&&(e.sta||``).toLowerCase().trim()!==r.toLowerCase().trim())return!1;if(i){let t=(e.rp||``).toLowerCase(),n=(e.cn||``).toLowerCase(),r=(e.fn||``).toLowerCase(),a=(e.desc||``).toLowerCase(),o=(e.rem||``).toLowerCase(),s=(e.sta||``).toLowerCase();return t.includes(i)||n.includes(i)||r.includes(i)||a.includes(i)||o.includes(i)||s.includes(i)}return!0})},[e?.nv,t,r]),d=e=>{e(),c(50)},f=u.slice(0,s),p=u.length>s;function m(e){o(a===e?null:e)}function h(){c(e=>e+50)}return(0,C.jsxs)(`div`,{className:`hc-list-root`,children:[(0,C.jsxs)(`div`,{className:`vt-search-card`,style:{marginBottom:16},children:[(0,C.jsx)(`div`,{className:`vt-search-eyebrow`,children:`PROPERTY DATABASE`}),(0,C.jsxs)(`div`,{className:`vt-search-row`,style:{marginTop:12},children:[(0,C.jsxs)(`div`,{className:`vt-fg vt-fg-grow`,children:[(0,C.jsx)(`label`,{className:`vt-lbl`,children:`Search Properties`}),(0,C.jsx)(`input`,{className:`vt-inp`,type:`text`,value:t,onChange:e=>d(()=>n(e.target.value)),placeholder:`Search by RP No, Case No, FIR, Description...`})]}),(0,C.jsxs)(`div`,{className:`vt-fg`,style:{flex:`0 0 220px`},children:[(0,C.jsx)(`label`,{className:`vt-lbl`,children:`Police Station`}),(0,C.jsx)(`select`,{className:`vt-inp`,style:{paddingRight:24,appearance:`auto`},value:r,onChange:e=>d(()=>i(e.target.value)),children:l.map(e=>(0,C.jsx)(`option`,{value:e,children:e===`ALL`?`All Stations`:e},e))})]})]})]}),(0,C.jsxs)(`div`,{className:`vt-summary`,style:{marginBottom:12},children:[(0,C.jsx)(`span`,{className:`vt-summary-count`,children:u.length}),(0,C.jsxs)(`span`,{className:`vt-summary-label`,children:[`record`,u.length===1?``:`s`,` match filters`]})]}),u.length>0?(0,C.jsxs)(`div`,{className:`vt-panel`,style:{padding:0,overflow:`hidden`},children:[(0,C.jsx)(`div`,{style:{overflowX:`auto`},children:(0,C.jsxs)(`table`,{className:`qb-table`,children:[(0,C.jsx)(`thead`,{children:(0,C.jsxs)(`tr`,{children:[(0,C.jsx)(`th`,{style:{width:`60px`,textAlign:`center`},children:`S.No`}),(0,C.jsx)(`th`,{style:{width:`120px`},children:`RP Number`}),(0,C.jsx)(`th`,{style:{width:`140px`},children:`Case Number`}),(0,C.jsx)(`th`,{style:{width:`120px`},children:`FIR Number`}),(0,C.jsx)(`th`,{children:`Police Station`}),(0,C.jsx)(`th`,{children:`Description`}),(0,C.jsx)(`th`,{style:{width:`80px`,textAlign:`center`},children:`View`})]})}),(0,C.jsx)(`tbody`,{children:f.map((e,t)=>{let n=`nv-list-${e.ri}-${t}`,r=a===n;return(0,C.jsxs)(`option`,{style:{display:`contents`},children:[(0,C.jsxs)(`tr`,{className:`qb-row${r?` qb-row-selected`:``}`,style:{cursor:`pointer`},onClick:()=>m(n),children:[(0,C.jsx)(`td`,{style:{textAlign:`center`,color:`var(--txt3)`},children:t+1}),(0,C.jsx)(`td`,{className:`mono`,style:{color:`var(--c-amber)`,fontWeight:600},children:e.rp||`—`}),(0,C.jsx)(`td`,{className:`mono`,children:e.cn||`—`}),(0,C.jsx)(`td`,{className:`mono`,children:e.fn||`—`}),(0,C.jsx)(`td`,{children:e.sta||`—`}),(0,C.jsx)(`td`,{style:{maxWidth:`280px`,whiteSpace:`nowrap`,overflow:`hidden`,textOverflow:`ellipsis`,color:`var(--txt2)`},children:e.desc||`—`}),(0,C.jsx)(`td`,{style:{textAlign:`center`,fontSize:`14px`},children:r?`▲`:`▼`})]}),r&&(0,C.jsx)(`tr`,{children:(0,C.jsx)(`td`,{colSpan:7,style:{background:`var(--bg3)`,padding:16},children:(0,C.jsx)(`div`,{className:`hc-list-expanded-detail`,onClick:e=>e.stopPropagation(),children:(0,C.jsx)(Yr,{r:e,srcKey:`nv`})})})})]},n)})})]})}),p&&(0,C.jsx)(`div`,{style:{padding:16,display:`flex`,justifyContent:`center`,borderTop:`1px solid var(--bdr)`},children:(0,C.jsxs)(`button`,{className:`vt-btn vt-btn-primary`,onClick:h,style:{minWidth:150},children:[`Load More (`,u.length-s,` remaining)`]})})]}):(0,C.jsxs)(`div`,{className:`vt-empty`,children:[(0,C.jsx)(`div`,{className:`vt-empty-icon`,children:`🏷️`}),(0,C.jsx)(`div`,{className:`vt-empty-title`,children:`No matching records`}),(0,C.jsx)(`div`,{className:`vt-empty-sub`,children:`Try adjusting your search criteria or station filters`})]})]})}var Aa=s({default:()=>ja});function ja({db:e,SMAP:t}){let[n,r]=(0,v.useState)(`viewer`);return(0,C.jsxs)(`div`,{className:`hc-tab-container`,children:[(0,C.jsxs)(`div`,{className:`abt-tabbar`,children:[(0,C.jsxs)(`button`,{className:`abt-tab${n===`viewer`?` abt-tab-active`:``}`,onClick:()=>r(`viewer`),children:[(0,C.jsx)(`span`,{className:`abt-tab-icon`,children:`🔎`}),(0,C.jsx)(`span`,{children:`Property Viewer`})]}),(0,C.jsxs)(`button`,{className:`abt-tab${n===`list`?` abt-tab-active`:``}`,onClick:()=>r(`list`),children:[(0,C.jsx)(`span`,{className:`abt-tab-icon`,children:`📋`}),(0,C.jsx)(`span`,{children:`Case Property List`})]})]}),(0,C.jsxs)(`div`,{className:`hc-tab-content`,style:{marginTop:16},children:[n===`viewer`&&(0,C.jsx)(Da,{db:e,SMAP:t}),n===`list`&&(0,C.jsx)(ka,{db:e})]})]})}var Ma=s({default:()=>Fa}),Na=[{label:`Connecting to Google Sheets…`,weight:15},{label:`Loading station list…`,weight:25},{label:`Fetching FIR records…`,weight:25},{label:`Fetching case data…`,weight:20},{label:`Building local index…`,weight:15}],Pa=[{id:`case_property`,label:`Case Property`,icon:(0,C.jsxs)(`svg`,{viewBox:`0 0 24 24`,fill:`none`,stroke:`currentColor`,strokeWidth:`2`,strokeLinecap:`round`,strokeLinejoin:`round`,children:[(0,C.jsx)(`path`,{d:`M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9`}),(0,C.jsx)(`path`,{d:`M9 22V12h6v10`}),(0,C.jsx)(`path`,{d:`M2 10.6L12 2l10 8.6`})]})}];function Fa(){let{tok:e,requestSheetsToken:t}=T(),[n,r]=(0,v.useState)(null),[i,a]=(0,v.useState)(ur),[o,s]=(0,v.useState)(`case_property`),[c,l]=(0,v.useState)(0),[u,d]=(0,v.useState)(``),[f,p]=(0,v.useState)(`idle`),[m,h]=(0,v.useState)(``),g=(0,v.useRef)(null);(0,v.useEffect)(()=>()=>{g.current&&clearTimeout(g.current)},[]),(0,v.useEffect)(()=>{f===`done`&&g.current&&(clearTimeout(g.current),g.current=null)},[f]);let _=(0,v.useRef)(0),y=(0,v.useRef)(null);function b(e,t){y.current&&cancelAnimationFrame(y.current);let n=()=>{_.current=Math.min(_.current+.8,e),l(Math.round(_.current)),_.current<e?y.current=requestAnimationFrame(n):t&&t()};y.current=requestAnimationFrame(n)}(0,v.useEffect)(()=>{f===`idle`&&(g.current&&clearTimeout(g.current),e?(p(`loading`),x(e),g.current=setTimeout(()=>{f===`loading`&&(h(`Data loading timeout. Please check your network and try again.`),p(`error`))},45e3)):(l(0),d(`Requesting Google Sheets access…`),p(`loading`),t().then(e=>{g.current&&clearTimeout(g.current),e?(d(`Loading data…`),x(e),g.current=setTimeout(()=>{f===`loading`&&(h(`Data loading timeout. Please check your network and try again.`),p(`error`))},45e3)):(h(`Could not obtain Google Sheets access.`),p(`error`))}).catch(e=>{g.current&&clearTimeout(g.current),h(`Authentication error: `+(e?.message||`Could not obtain access`)),p(`error`)})))},[e,f]);async function x(e){_.current=0,l(0),p(`loading`);let t=0;async function n(e){let n=Na[e];d(n.label),t+=n.weight,await new Promise(e=>b(t,e)),await new Promise(e=>setTimeout(e,120))}try{await n(0);let t=await(async()=>(await n(1),await jr(e)))(),i=t?.length?t:ur;a(i),await n(2),await n(3);let o=await Fr(e,i);await n(4),await new Promise(e=>b(100,e)),await new Promise(e=>setTimeout(e,300)),r(o),p(`done`)}catch(e){console.error(`Load error:`,e),h(e?.message?`Failed to load data: ${e.message}`:`Failed to load data.`),p(`error`)}}function S(){g.current&&clearTimeout(g.current),r(null),h(``),l(0),d(``),p(`idle`)}return f===`loading`||f===`idle`?(0,C.jsx)(Ia,{progress:c,stepLabel:u}):f===`error`||!n?(0,C.jsx)(La,{msg:m,onRetry:S}):(0,C.jsxs)(`div`,{className:`hc-root`,children:[(0,C.jsx)(`div`,{className:`hc-pane`,children:o===`case_property`&&(0,C.jsx)(ja,{db:n,SMAP:i})}),(0,C.jsx)(`nav`,{className:`hc-bottom-nav`,"aria-label":`Head Clerk tabs`,children:Pa.map(e=>{let t=o===e.id;return(0,C.jsxs)(`button`,{className:`hc-nav-item${t?` hc-nav-item--active`:``}`,onClick:()=>s(e.id),"aria-current":t?`page`:void 0,children:[(0,C.jsx)(`span`,{className:`hc-nav-pill`,"aria-hidden":`true`}),(0,C.jsx)(`span`,{className:`hc-nav-icon`,children:e.icon}),(0,C.jsx)(`span`,{className:`hc-nav-label`,children:e.label})]},e.id)})})]})}function Ia({progress:e,stepLabel:t}){return(0,C.jsx)(`div`,{className:`hc-load-screen`,children:(0,C.jsxs)(`div`,{className:`hc-load-card`,children:[(0,C.jsxs)(`div`,{className:`hc-load-icon-wrap`,children:[(0,C.jsx)(`div`,{className:`hc-load-icon-ring`}),(0,C.jsx)(`span`,{className:`hc-load-icon-emoji`,children:`👨‍💼`})]}),(0,C.jsx)(`div`,{className:`hc-load-title`,children:`Head Clerk`}),(0,C.jsx)(`div`,{className:`hc-load-sub`,children:`Court Management System`}),(0,C.jsxs)(`div`,{className:`hc-prog-wrap`,children:[(0,C.jsx)(`div`,{className:`hc-prog-track`,children:(0,C.jsx)(`div`,{className:`hc-prog-fill`,style:{width:`${e}%`}})}),(0,C.jsxs)(`div`,{className:`hc-prog-pct`,children:[e,`%`]})]}),(0,C.jsx)(`div`,{className:`hc-load-step-label`,children:t||`Initialising…`}),(0,C.jsx)(`div`,{className:`hc-load-dots`,children:[0,1,2,3,4].map(t=>{let n=[0,15,40,65,85,100],r=e>=n[t]&&e<n[t+1];return(0,C.jsx)(`div`,{className:`hc-load-dot${e>=n[t+1]?` hc-load-dot--done`:r?` hc-load-dot--active`:``}`},t)})})]})})}function La({msg:e,onRetry:t}){return(0,C.jsx)(`div`,{className:`hc-load-screen`,children:(0,C.jsxs)(`div`,{className:`hc-load-card hc-load-card--error`,children:[(0,C.jsx)(`div`,{className:`hc-err-icon`,children:`⚠️`}),(0,C.jsx)(`div`,{className:`hc-load-title`,children:`Load Failed`}),(0,C.jsx)(`div`,{className:`hc-load-sub`,style:{color:`var(--c-red)`,marginTop:4,whiteSpace:`pre-wrap`},children:e}),(0,C.jsx)(`button`,{className:`hc-retry-btn`,onClick:t,children:`↺ Retry`})]})})}var Ra=`
+  .hc-root {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - 60px);
+    background: var(--bg);
+    padding-bottom: 72px;
+    position: relative;
+  }
+  .hc-pane {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Dual toggles */
+  .hc-tab-toggles {
+    display: flex;
+    gap: 8px;
+    background: var(--bg3, rgba(255, 255, 255, 0.03));
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    width: fit-content;
+  }
+  .hc-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--txt2);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hc-toggle-btn:hover {
+    color: var(--txt);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .hc-toggle-btn-active {
+    background: var(--accent) !important;
+    color: #000 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Resolver UI */
+  .hc-resolver-section {
+    background: var(--card-bg, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--card-bdr, rgba(255, 255, 255, 0.08));
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+  .hc-resolver-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--txt);
+  }
+
+  /* Loading screen */
+  .hc-load-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 800;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: hc-fade-in 0.3s ease;
+  }
+  @keyframes hc-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .hc-load-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bdr, rgba(255, 255, 255, 0.08));
+    border-radius: 28px;
+    padding: 40px 36px 36px;
+    max-width: 360px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 8px 40px var(--shadow);
+    animation: hc-card-in 0.38s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes hc-card-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .hc-load-card--error {
+    border-color: var(--c-red);
+  }
+  .hc-load-icon-wrap {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .hc-load-icon-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    animation: hc-ring-spin 1.2s linear infinite;
+    opacity: 0.7;
+  }
+  @keyframes hc-ring-spin {
+    to { transform: rotate(360deg); }
+  }
+  .hc-load-icon-emoji {
+    font-size: 32px;
+    line-height: 1;
+    z-index: 1;
+  }
+  .hc-load-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--txt);
+    letter-spacing: -0.03em;
+    margin-top: -4px;
+  }
+  .hc-load-sub {
+    font-size: 12px;
+    color: var(--txt2);
+    margin-top: -8px;
+    text-align: center;
+  }
+  .hc-prog-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .hc-prog-track {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: var(--bg3, var(--bg2));
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .hc-prog-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 70%, #fff 30%) 100%);
+    border-radius: 99px;
+    transition: width 0.08s linear;
+    min-width: 8px;
+  }
+  .hc-prog-pct {
+    align-self: flex-end;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  .hc-load-step-label {
+    font-size: 12px;
+    color: var(--txt2);
+    text-align: center;
+    min-height: 18px;
+    transition: opacity 0.2s;
+    letter-spacing: 0.01em;
+  }
+  .hc-load-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 2px;
+  }
+  .hc-load-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border, rgba(255, 255, 255, 0.1));
+    transition: background 0.25s, transform 0.25s;
+  }
+  .hc-load-dot--active {
+    background: var(--accent);
+    transform: scale(1.4);
+  }
+  .hc-load-dot--done {
+    background: var(--c-green, #3fb950);
+  }
+  .hc-err-icon {
+    font-size: 44px;
+    margin-bottom: -4px;
+  }
+  .hc-retry-btn {
+    margin-top: 8px;
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 32px;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    letter-spacing: 0.01em;
+  }
+  .hc-retry-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+
+  /* Bottom nav bar */
+  .hc-bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 900;
+    height: 72px;
+    background: var(--navbar, var(--bg2));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px;
+  }
+  .hc-nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    height: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    color: var(--txt3, var(--txt2));
+    transition: color 0.2s ease;
+  }
+  .hc-nav-pill {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 32px;
+    border-radius: 16px;
+    background: transparent;
+    transition:
+      width 0.3s cubic-bezier(0.4,0,0.2,1),
+      background 0.3s ease;
+    z-index: 0;
+  }
+  .hc-nav-item--active .hc-nav-pill {
+    width: 60px;
+    background: var(--accent-bg, rgba(201,168,76,0.12));
+  }
+  .hc-nav-icon {
+    position: relative;
+    z-index: 1;
+    width: 24px; height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .hc-nav-icon svg { width: 22px; height: 22px; }
+  .hc-nav-item--active {
+    color: var(--accent);
+  }
+  .hc-nav-item--active .hc-nav-icon {
+    transform: translateY(-2px) scale(1.1);
+  }
+  .hc-nav-label {
+    position: relative;
+    z-index: 1;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    transition: font-weight 0.15s ease, color 0.2s ease;
+  }
+  .hc-nav-item--active .hc-nav-label {
+    font-weight: 700;
+  }
+`;if(typeof document<`u`&&!document.getElementById(`headclerk-css`)){let e=document.createElement(`style`);e.id=`headclerk-css`,e.textContent=Ra,document.head.appendChild(e)}var za=Object.assign({"./AuthContext.jsx":S,"./Ecourt/ECourt.jsx":M,"./LoginPage.jsx":rr,"./ProtectedRoute.jsx":or,"./examiner/Examiner.jsx":ga,"./examiner/components/AuthPrompt.jsx":wa,"./examiner/components/CaseDetail.jsx":Jr,"./examiner/components/SectionBuilder.jsx":Rr,"./examiner/components/StationYearMatrix.jsx":Zi,"./examiner/tabs/AbstractTab.jsx":ca,"./examiner/tabs/EntryTab.jsx":Br,"./examiner/tabs/FTCTab.jsx":yi,"./examiner/tabs/ViewerTab.jsx":Xr,"./examiner/tabs/inner/AbstractInner.jsx":$i,"./examiner/tabs/inner/MaintenanceInner.jsx":aa,"./examiner/tabs/inner/PendingFIRInner.jsx":na,"./examiner/tabs/inner/StatementTab.jsx":ji,"./examiner/tabs/inner/ftc/AddFIRModal.jsx":Qr,"./examiner/tabs/inner/ftc/CaseNumberedInner.jsx":ci,"./examiner/tabs/inner/ftc/MoveFIRInner.jsx":ti,"./examiner/tabs/inner/ftc/OtherReasonsInner.jsx":oi,"./examiner/tabs/inner/ftc/QueryBuilderInner.jsx":pi,"./headclerk/Dashboard.jsx":Ma,"./headclerk/tabs/CasePropertyTab.jsx":Aa,"./headclerk/tabs/inner/CasePropertyListInner.jsx":Oa,"./headclerk/tabs/inner/PropertyViewerInner.jsx":Ea,"./main.jsx":$a,"./mc/Mc.jsx":s({}),"./rc/Rc.jsx":s({})}),Ba=[{title:`Head Clerk`,route:`/headclerk/dashboard`,icon:`👨‍💼`,color:`#D4AF37`},{title:`MC Section`,route:`/mc/mc`,icon:`⚖️`,color:`#4CAF50`},{title:`Examiner`,route:`/examiner/examiner`,icon:`📋`,color:`#2196F3`},{title:`RC Section`,route:`/rc/rc`,icon:`📁`,color:`#9C27B0`}],Va=[`App.jsx`,`main.jsx`,`AuthContext.jsx`,`LoginPage.jsx`,`ProtectedRoute.jsx`],Ha=(0,v.createContext)({theme:`dark`,toggleTheme:()=>{}}),Ua=()=>(0,v.useContext)(Ha);function Wa({children:e}){let[t,n]=(0,v.useState)(()=>{let e=localStorage.getItem(`court_theme`);return e===`night`?`dark`:e===`day`?`light`:e||`dark`});return(0,C.jsx)(Ha.Provider,{value:{theme:t,toggleTheme:()=>n(e=>{let t=e===`dark`?`light`:`dark`;return localStorage.setItem(`court_theme`,t),t})},children:e})}function Ga(){let e=new Set;return Object.entries(za).filter(([e])=>!Va.some(t=>e.includes(t))).map(([t,n])=>{let r=t.replace(`./`,`/`).replace(/\.jsx$/,``).toLowerCase();if(r.endsWith(`/index`)&&(r=r.replace(`/index`,``)),e.has(r))return null;e.add(r);let i=n.default;return i?(0,C.jsx)(Kt,{path:r,element:(0,C.jsx)(sr,{children:(0,C.jsx)(i,{})})},r):null}).filter(Boolean)}function Ka(){let{theme:e}=Ua(),t=e===`dark`;return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`div`,{className:`hero`,children:[(0,C.jsx)(`h1`,{style:{color:t?`#f1f5f9`:`#1a1a18`},children:`⚖️ Court Management`}),(0,C.jsx)(`p`,{style:{color:t?`#94a3b8`:`#6b7280`},children:`Court Office Management Dashboard`})]}),(0,C.jsx)(`div`,{className:`card-grid`,children:Ba.map((t,n)=>(0,C.jsxs)(zn,{to:t.route,className:`dashboard-card`,"data-theme":e,children:[(0,C.jsx)(`div`,{className:`card-icon`,style:{color:t.color},children:t.icon}),(0,C.jsx)(`h2`,{children:t.title})]},n))})]})}function qa({mobile:e=!1}){let{theme:t,toggleTheme:n}=Ua(),r=t===`dark`;return(0,C.jsxs)(`button`,{className:e?`theme-toggle-mobile`:`theme-toggle`,onClick:n,title:r?`Switch to Day Mode`:`Switch to Night Mode`,children:[(0,C.jsx)(`span`,{className:`theme-icon`,children:r?`☀️`:`🌙`}),(0,C.jsx)(`span`,{className:`theme-label`,children:r?`Day`:`Night`})]})}function Ja({mobileMenu:e,setMobileMenu:t}){let{user:n,logout:r}=T(),{theme:i}=Ua(),a=bt(),o=()=>{r(),a(`/login`,{replace:!0})};return(0,C.jsxs)(C.Fragment,{children:[(0,C.jsxs)(`nav`,{className:`navbar`,"data-theme":i,children:[(0,C.jsx)(`div`,{className:`nav-mobile-spacer`}),(0,C.jsx)(zn,{to:`/`,className:`logo`,"data-theme":i,children:`⚖️ Court CMS`}),(0,C.jsx)(`div`,{className:`nav-menu`,children:Ba.map((e,t)=>(0,C.jsxs)(zn,{to:e.route,className:`nav-link`,"data-theme":i,children:[e.icon,` `,e.title]},t))}),(0,C.jsxs)(`div`,{className:`nav-right`,children:[(0,C.jsx)(qa,{}),n&&(0,C.jsxs)(C.Fragment,{children:[n.picture?(0,C.jsx)(`img`,{src:n.picture,alt:``,className:`user-avatar`}):(0,C.jsxs)(`span`,{className:`user-badge`,"data-theme":i,children:[n.icon,` `,n.label]}),(0,C.jsx)(`button`,{className:`logout-btn`,onClick:o,children:`Sign Out`})]}),(0,C.jsx)(`button`,{className:`menu-btn`,"data-theme":i,onClick:()=>t(e=>!e),"aria-label":`Toggle menu`,children:e?`✕`:`☰`})]})]}),e&&(0,C.jsxs)(`div`,{className:`mobile-menu`,"data-theme":i,children:[Ba.map((e,n)=>(0,C.jsxs)(zn,{to:e.route,onClick:()=>t(!1),children:[e.icon,` `,e.title]},n)),(0,C.jsx)(qa,{mobile:!0}),n&&(0,C.jsxs)(`button`,{className:`mobile-logout`,onClick:()=>{t(!1),o()},children:[`🚪 Sign Out (`,n.label,`)`]})]})]})}function Ya({children:e}){let[t,n]=(0,v.useState)(!1),{theme:r}=Ua();return(0,C.jsxs)(`div`,{className:`app`,"data-theme":r,children:[(0,C.jsx)(Ja,{mobileMenu:t,setMobileMenu:n}),(0,C.jsx)(`div`,{className:`content`,children:e})]})}function Xa(){return(0,C.jsxs)(Jt,{children:[(0,C.jsx)(Kt,{path:`/login`,element:(0,C.jsx)(ir,{})}),(0,C.jsx)(Kt,{path:`/`,element:(0,C.jsx)(sr,{children:(0,C.jsx)(Ya,{children:(0,C.jsx)(Ka,{})})})}),Ga().map(e=>v.cloneElement(e,{element:(0,C.jsx)(Ya,{children:e.props.element})})),(0,C.jsx)(Kt,{path:`*`,element:(0,C.jsx)(Gt,{to:`/`,replace:!0})})]})}function Za(){return(0,C.jsx)(Wa,{children:(0,C.jsx)(j,{children:(0,C.jsxs)(In,{children:[(0,C.jsx)(Qa,{}),(0,C.jsx)(Xa,{})]})})})}function Qa(){return(0,C.jsx)(`style`,{children:`
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 
@@ -700,4 +1002,4 @@ Please refresh the page and try again.`),p(`error`)})),()=>{b.current&&clearTime
         border-color: rgba(201,168,76,0.5) !important;
         box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
       }
-    `})}var Ba=s({});(0,y.createRoot)(document.getElementById(`root`)).render((0,C.jsx)(v.StrictMode,{children:(0,C.jsx)(Ra,{})}));
+    `})}var $a=s({});(0,y.createRoot)(document.getElementById(`root`)).render((0,C.jsx)(v.StrictMode,{children:(0,C.jsx)(Za,{})}));
