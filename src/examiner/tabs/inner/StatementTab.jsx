@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { isValidFIRCell } from "../utils/helpers.js";
+import { isValidFIRCell } from "../../utils/helpers.js";
 
 const EMPTY_ARR = [];
 
