@@ -15,14 +15,14 @@ import { isValidFIRCell, parseFIR, normalizeFIRCell } from "../utils/helpers.js"
 import { sheetsGet, sheetsUpdate } from "../utils/sheets.js";
 import { SID } from "../constants/config.js";
 import { exportToExcel, exportToWord } from "../utils/exportUtils.js";
-import StatementTab    from "./StatementTab.jsx";
-import AbstractInner   from "./inner/AbstractInner.jsx";
+import StatementTab from "./inner/StatementTab.jsx";
+import AbstractInner from "./inner/AbstractInner.jsx";
 import PendingFIRInner from "./inner/PendingFIRInner.jsx";
 import MaintenanceInner from "./inner/MaintenanceInner.jsx";
 
 const MON_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DATE_RE   = /^\d{2}\.\d{2}\.\d{4}$/;
-const SKIP_HDR  = b => /cr\.no/i.test(b);
+const DATE_RE = /^\d{2}\.\d{2}\.\d{4}$/;
+const SKIP_HDR = b => /cr\.no/i.test(b);
 
 function parseDDMMYYYY(s) {
   const p = s.split("."); if (p.length < 3) return 0;
@@ -40,9 +40,9 @@ function robustFirSortKey(cr) {
 }
 
 const INNER_TABS = [
-  { id: "abstract",    icon: "📊", label: "Abstract"    },
-  { id: "pending",     icon: "📋", label: "Pending FIR" },
-  { id: "statement",   icon: "📄", label: "Statement"   },
+  { id: "abstract", icon: "📊", label: "Abstract" },
+  { id: "pending", icon: "📋", label: "Pending FIR" },
+  { id: "statement", icon: "📄", label: "Statement" },
   { id: "maintenance", icon: "🔧", label: "Maintenance" },
 ];
 
@@ -51,24 +51,24 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   const [inner, setInner] = useState("abstract");
 
   /* ── Abstract state ── */
-  const [filterSt,   setFilterSt]   = useState("ALL");
-  const [filterYr,   setFilterYr]   = useState("ALL");
+  const [filterSt, setFilterSt] = useState("ALL");
+  const [filterYr, setFilterYr] = useState("ALL");
   const [filterDate, setFilterDate] = useState("");
-  const [filterSec,  setFilterSec]  = useState("");
+  const [filterSec, setFilterSec] = useState("");
   const [listSearch, setListSearch] = useState("");
-  const [secSearch,  setSecSearch]  = useState("");
+  const [secSearch, setSecSearch] = useState("");
 
   /* ── Pending FIR state ── */
-  const [pendSt,           setPendSt]           = useState(() => SMAP[0]?.sh || "");
-  const [pendSearch,       setPendSearch]       = useState("");
+  const [pendSt, setPendSt] = useState(() => SMAP[0]?.sh || "");
+  const [pendSearch, setPendSearch] = useState("");
   const [pendFilterStatus, setPendFilterStatus] = useState("ALL");
 
   /* ── Maintenance state ── */
-  const [issues,     setIssues]     = useState(null);
-  const [scanning,   setScanning]   = useState(false);
-  const [fixing,     setFixing]     = useState(false);
-  const [maintMsg,   setMaintMsg]   = useState(null);
-  const [renumMsg,   setRenumMsg]   = useState(null);
+  const [issues, setIssues] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [maintMsg, setMaintMsg] = useState(null);
+  const [renumMsg, setRenumMsg] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
 
   /* ══════════════════════════════════════════════════════════
@@ -90,9 +90,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   const filtered = useMemo(() => allFirs.filter(r => {
     if (filterSt !== "ALL" && r.stSh !== filterSt) return false;
-    if (filterYr !== "ALL" && r.yr  !== filterYr)  return false;
-    if (filterDate && !(r.dr  || "").includes(filterDate)) return false;
-    if (filterSec  && !(r.sec || "").toLowerCase().includes(filterSec.toLowerCase())) return false;
+    if (filterYr !== "ALL" && r.yr !== filterYr) return false;
+    if (filterDate && !(r.dr || "").includes(filterDate)) return false;
+    if (filterSec && !(r.sec || "").toLowerCase().includes(filterSec.toLowerCase())) return false;
     return true;
   }), [allFirs, filterSt, filterYr, filterDate, filterSec]);
 
@@ -133,8 +133,8 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     if (!listSearch) return filtered;
     const q = listSearch.toLowerCase();
     return filtered.filter(r =>
-      (r.cr  || "").toLowerCase().includes(q) || (r.sec  || "").toLowerCase().includes(q) ||
-      (r.dr  || "").toLowerCase().includes(q) || (r.stLb || "").toLowerCase().includes(q));
+      (r.cr || "").toLowerCase().includes(q) || (r.sec || "").toLowerCase().includes(q) ||
+      (r.dr || "").toLowerCase().includes(q) || (r.stLb || "").toLowerCase().includes(q));
   }, [filtered, listSearch]);
 
   const listFilteredSorted = useMemo(() => {
@@ -153,16 +153,16 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   ══════════════════════════════════════════════════════════ */
   const pendRows = useMemo(() => {
     const rows = db.fir[pendSt] || [];
-    const q    = pendSearch.toLowerCase();
+    const q = pendSearch.toLowerCase();
     return rows.filter(r => {
       if (pendSearch) {
-        const match = (r.cr  || "").toLowerCase().includes(q) ||
-                      (r.sec || "").toLowerCase().includes(q) ||
-                      (r.dr  || "").includes(q);
+        const match = (r.cr || "").toLowerCase().includes(q) ||
+          (r.sec || "").toLowerCase().includes(q) ||
+          (r.dr || "").includes(q);
         if (!match) return false;
       }
       if (pendFilterStatus === "MISSING") return !r.dr;
-      if (pendFilterStatus === "FORMAT")  return r.dr && !DATE_RE.test(r.dr);
+      if (pendFilterStatus === "FORMAT") return r.dr && !DATE_RE.test(r.dr);
       return true;
     });
   }, [db, pendSt, pendSearch, pendFilterStatus]);
@@ -175,7 +175,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
 
   const pendMissingCount = useMemo(() =>
     (db.fir[pendSt] || []).filter(r => !r.dr).length, [db, pendSt]);
-  const pendFormatCount  = useMemo(() =>
+  const pendFormatCount = useMemo(() =>
     (db.fir[pendSt] || []).filter(r => r.dr && !DATE_RE.test(r.dr)).length, [db, pendSt]);
 
   /* ══════════════════════════════════════════════════════════
@@ -221,7 +221,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
         if (info.type !== "fir") continue;
 
         const { sl, cr, sec, dr } = info;
-        const key      = robustFirSortKey(cr);
+        const key = robustFirSortKey(cr);
         const original = (raw[i][1] || "").toString().trim();
 
         if (cr !== original)
@@ -287,7 +287,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       if (!raw?.length) continue;
 
       const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
-      const firSlots  = structure.filter(r => r.type === "fir");
+      const firSlots = structure.filter(r => r.type === "fir");
       if (firSlots.length === 0) continue;
 
       const needsUpdate = firSlots.some((slot, i) => {
@@ -297,7 +297,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       if (!needsUpdate) continue;
 
       for (let i = 0; i < firSlots.length; i++) {
-        const slot     = firSlots[i];
+        const slot = firSlots[i];
         const correctSl = String(i + 1);
         if (slot.sl === correctSl) continue;
         await sheetsUpdate(tok, SID.fir, `${s.sh}!A${slot.rowIdx + 1}`, [[correctSl]]);
@@ -339,10 +339,10 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       if (!raw?.length) continue;
 
       const structure = raw.map((row, rowIdx) => ({ ...classifyRow(row), rowIdx }));
-      const firRows   = structure.filter(r => r.type === "fir").map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
+      const firRows = structure.filter(r => r.type === "fir").map(r => ({ sl: r.sl, cr: r.cr, sec: r.sec, dr: r.dr }));
       if (firRows.length === 0) continue;
 
-      const sorted    = [...firRows].sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
+      const sorted = [...firRows].sort((a, b) => robustFirSortKey(a.cr) - robustFirSortKey(b.cr));
       sorted.forEach((r, i) => { r.sl = String(i + 1); });
       if (firRows.every((r, i) => r.cr === sorted[i].cr)) continue;
 
@@ -403,7 +403,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
     const rows = [];
     const activeStations = stTot.filter(s => matrixYears.some(y => (matrixMap[`${s.sh}::${y}`] || 0) > 0));
     for (const s of activeStations) {
-      const row   = [s.lb, ...matrixYears.map(y => matrixMap[`${s.sh}::${y}`] || 0)];
+      const row = [s.lb, ...matrixYears.map(y => matrixMap[`${s.sh}::${y}`] || 0)];
       const total = row.slice(1).reduce((a, v) => a + v, 0);
       rows.push([...row, total]);
     }
@@ -416,26 +416,26 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   function handleExportAll() {
     exportToExcel("FIR_Abstract.xlsx", [
       { name: "FIR Pending List", headers: ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], rows: listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]) },
-      { name: "Station-wise",     headers: ["Code", "Station", "FIRs", "%"], rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]) },
-      { name: "Year-wise",        headers: ["Year", "FIRs", "%"],            rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]) },
-      { name: "Month-wise",       headers: ["Month", "FIRs"],                rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }) },
-      { name: "Section-wise",     headers: ["#", "Section U/s", "FIRs"],     rows: secAll.map(([k, v], i) => [i + 1, k, v]) },
+      { name: "Station-wise", headers: ["Code", "Station", "FIRs", "%"], rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]) },
+      { name: "Year-wise", headers: ["Year", "FIRs", "%"], rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]) },
+      { name: "Month-wise", headers: ["Month", "FIRs"], rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }) },
+      { name: "Section-wise", headers: ["#", "Section U/s", "FIRs"], rows: secAll.map(([k, v], i) => [i + 1, k, v]) },
       { name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"], rows: matrixRows },
     ]);
   }
-  function handleExportList()         { exportToExcel("FIR_List.xlsx",         [{ name: "FIR List",          headers: ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], rows: listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]) }]); }
-  function handleExportStationExcel() { exportToExcel("FIR_Station_Wise.xlsx", [{ name: "Station-wise",      headers: ["Code", "Station", "FIRs", "%"],  rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]) }]); }
-  function handleExportStationWord()  { exportToWord("FIR_Station_Wise.doc",  "Station-wise FIR Summary",   ["Code", "Station", "FIRs", "%"],  stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])); }
-  function handleExportYearExcel()    { exportToExcel("FIR_Year_Wise.xlsx",    [{ name: "Year-wise",         headers: ["Year", "FIRs", "%"],            rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]) }]); }
-  function handleExportYearWord()     { exportToWord("FIR_Year_Wise.doc",    "Year-wise FIR Summary",        ["Year", "FIRs", "%"],            yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])); }
-  function handleExportMonthExcel()   { exportToExcel("FIR_Month_Wise.xlsx",   [{ name: "Month-wise",        headers: ["Month", "FIRs"],                rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }) }]); }
-  function handleExportMonthWord()    { exportToWord("FIR_Month_Wise.doc",   "Month-wise FIR Summary",       ["Month", "FIRs"],                monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; })); }
-  function handleExportSectionExcel() { exportToExcel("FIR_Section_Wise.xlsx", [{ name: "Section-wise",      headers: ["#", "Section U/s", "FIRs"],     rows: secAll.map(([k, v], i) => [i + 1, k, v]) }]); }
-  function handleExportSectionWord()  { exportToWord("FIR_Section_Wise.doc", "Section-wise FIR Summary",    ["#", "Section U/s", "FIRs"],     secAll.map(([k, v], i) => [i + 1, k, v])); }
-  function handleExportMatrixExcel()  { exportToExcel("Station_Year_Matrix.xlsx", [{ name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"], rows: matrixRows }]); }
-  function handleExportMatrixWord()   { exportToWord("Station_Year_Matrix.doc", "Station × Year Matrix",    ["Station", ...matrixYears, "Total"], matrixRows, { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 }); }
-  function handleExportRecentExcel()  { exportToExcel("FIR_Recent_Dates.xlsx",  [{ name: "Recent Dates",     headers: ["Date", "FIRs"],                 rows: daySort.map(([k, v]) => [k, v]) }]); }
-  function handleExportRecentWord()   { exportToWord("FIR_Recent_Dates.doc",  "Recent FIR Dates",            ["Date", "FIRs"],                 daySort.map(([k, v]) => [k, v])); }
+  function handleExportList() { exportToExcel("FIR_List.xlsx", [{ name: "FIR List", headers: ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"], rows: listFilteredSorted.map(r => [r.sl, r.cr, r.yr || "", r.stLb, r.sec, r.dr || ""]) }]); }
+  function handleExportStationExcel() { exportToExcel("FIR_Station_Wise.xlsx", [{ name: "Station-wise", headers: ["Code", "Station", "FIRs", "%"], rows: stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"]) }]); }
+  function handleExportStationWord() { exportToWord("FIR_Station_Wise.doc", "Station-wise FIR Summary", ["Code", "Station", "FIRs", "%"], stTot.map(s => [s.sh, s.lb, s.cnt, grand ? ((s.cnt / grand) * 100).toFixed(1) + "%" : "0%"])); }
+  function handleExportYearExcel() { exportToExcel("FIR_Year_Wise.xlsx", [{ name: "Year-wise", headers: ["Year", "FIRs", "%"], rows: yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"]) }]); }
+  function handleExportYearWord() { exportToWord("FIR_Year_Wise.doc", "Year-wise FIR Summary", ["Year", "FIRs", "%"], yrSort.map(([k, v]) => [k, v, grand ? ((v / grand) * 100).toFixed(1) + "%" : "0%"])); }
+  function handleExportMonthExcel() { exportToExcel("FIR_Month_Wise.xlsx", [{ name: "Month-wise", headers: ["Month", "FIRs"], rows: monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; }) }]); }
+  function handleExportMonthWord() { exportToWord("FIR_Month_Wise.doc", "Month-wise FIR Summary", ["Month", "FIRs"], monSort.map(([k, v]) => { const [my, mn] = k.split("-"); return [`${MON_NAMES[+mn] || mn} ${my}`, v]; })); }
+  function handleExportSectionExcel() { exportToExcel("FIR_Section_Wise.xlsx", [{ name: "Section-wise", headers: ["#", "Section U/s", "FIRs"], rows: secAll.map(([k, v], i) => [i + 1, k, v]) }]); }
+  function handleExportSectionWord() { exportToWord("FIR_Section_Wise.doc", "Section-wise FIR Summary", ["#", "Section U/s", "FIRs"], secAll.map(([k, v], i) => [i + 1, k, v])); }
+  function handleExportMatrixExcel() { exportToExcel("Station_Year_Matrix.xlsx", [{ name: "Station-Year Matrix", headers: ["Station", ...matrixYears, "Total"], rows: matrixRows }]); }
+  function handleExportMatrixWord() { exportToWord("Station_Year_Matrix.doc", "Station × Year Matrix", ["Station", ...matrixYears, "Total"], matrixRows, { pageSize: "A4", orientation: "landscape", fontSize: 10, cellPadding: 5 }); }
+  function handleExportRecentExcel() { exportToExcel("FIR_Recent_Dates.xlsx", [{ name: "Recent Dates", headers: ["Date", "FIRs"], rows: daySort.map(([k, v]) => [k, v]) }]); }
+  function handleExportRecentWord() { exportToWord("FIR_Recent_Dates.doc", "Recent FIR Dates", ["Date", "FIRs"], daySort.map(([k, v]) => [k, v])); }
 
   /* ══════════════════════════════════════════════════════════
      RENDER
@@ -443,7 +443,7 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
   return (
     <div className="abt-root">
       {!window.XLSX && (
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onLoad={() => {}} />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onLoad={() => { }} />
       )}
 
       {/* ── Inner tab bar ── */}
@@ -461,12 +461,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       {/* ── TAB 1 — ABSTRACT ── */}
       {inner === "abstract" && (
         <AbstractInner
-          filterSt={filterSt}   setFilterSt={setFilterSt}
-          filterYr={filterYr}   setFilterYr={setFilterYr}
+          filterSt={filterSt} setFilterSt={setFilterSt}
+          filterYr={filterYr} setFilterYr={setFilterYr}
           filterDate={filterDate} setFilterDate={setFilterDate}
-          filterSec={filterSec}  setFilterSec={setFilterSec}
+          filterSec={filterSec} setFilterSec={setFilterSec}
           listSearch={listSearch} setListSearch={setListSearch}
-          secSearch={secSearch}  setSecSearch={setSecSearch}
+          secSearch={secSearch} setSecSearch={setSecSearch}
           hasFilters={hasFilters} resetFilters={resetFilters}
           grand={grand} allFirs={allFirs} allYears={allYears} stTot={stTot}
           yrSort={yrSort} monSort={monSort} daySort={daySort}
@@ -474,13 +474,13 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
           listFiltered={listFiltered} listFilteredSorted={listFilteredSorted}
           matrixRows={matrixRows} matrixYears={matrixYears}
           filtered={filtered} SMAP={SMAP}
-          handleExportAll={handleExportAll}           handleExportList={handleExportList}
+          handleExportAll={handleExportAll} handleExportList={handleExportList}
           handleExportStationExcel={handleExportStationExcel} handleExportStationWord={handleExportStationWord}
-          handleExportYearExcel={handleExportYearExcel}       handleExportYearWord={handleExportYearWord}
-          handleExportMonthExcel={handleExportMonthExcel}     handleExportMonthWord={handleExportMonthWord}
+          handleExportYearExcel={handleExportYearExcel} handleExportYearWord={handleExportYearWord}
+          handleExportMonthExcel={handleExportMonthExcel} handleExportMonthWord={handleExportMonthWord}
           handleExportSectionExcel={handleExportSectionExcel} handleExportSectionWord={handleExportSectionWord}
-          handleExportMatrixExcel={handleExportMatrixExcel}   handleExportMatrixWord={handleExportMatrixWord}
-          handleExportRecentExcel={handleExportRecentExcel}   handleExportRecentWord={handleExportRecentWord}
+          handleExportMatrixExcel={handleExportMatrixExcel} handleExportMatrixWord={handleExportMatrixWord}
+          handleExportRecentExcel={handleExportRecentExcel} handleExportRecentWord={handleExportRecentWord}
         />
       )}
 
@@ -488,12 +488,12 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       {inner === "pending" && (
         <PendingFIRInner
           db={db} setDb={setDb} tok={tok} SMAP={SMAP}
-          pendSt={pendSt}           setPendSt={setPendSt}
-          pendSearch={pendSearch}   setPendSearch={setPendSearch}
+          pendSt={pendSt} setPendSt={setPendSt}
+          pendSearch={pendSearch} setPendSearch={setPendSearch}
           pendFilterStatus={pendFilterStatus} setPendFilterStatus={setPendFilterStatus}
           pendRowsSorted={pendRowsSorted}
           pendMissingCount={pendMissingCount} pendFormatCount={pendFormatCount}
-          editingRow={editingRow}   setEditingRow={setEditingRow}
+          editingRow={editingRow} setEditingRow={setEditingRow}
           setMaintMsg={setMaintMsg}
         />
       )}
@@ -506,9 +506,9 @@ export default function AbstractTab({ db, setDb, tok, smap }) {
       {/* ── TAB 4 — MAINTENANCE ── */}
       {inner === "maintenance" && (
         <MaintenanceInner
-          issues={issues}   scanning={scanning} fixing={fixing}
+          issues={issues} scanning={scanning} fixing={fixing}
           maintMsg={maintMsg} renumMsg={renumMsg}
-          doScan={doScan}           fixConcatenated={fixConcatenated}
+          doScan={doScan} fixConcatenated={fixConcatenated}
           fixSerialNumbers={fixSerialNumbers} fixFIROrder={fixFIROrder}
         />
       )}
