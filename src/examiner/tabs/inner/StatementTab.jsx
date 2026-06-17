@@ -199,41 +199,28 @@ export default function StatementTab({ db, smap }) {
 
   /* ─────────────────────────────────────────────────────────────
      PENDING (PREV MONTH END)
-
-     Formula:
-       FIR Pending list  →  dr ≤ prev month last date  (always)
-       CNum list         →  prev month == May 2026 ? dreg in June 2026 only
-                                                    : dreg in prev month
-     Deduplicate by FIR number before combining.
   ───────────────────────────────────────────────────────────── */
   const prevPendingFirs = useMemo(() => {
     if (!submitted) return [];
 
-    /* Step 1 — FIR Pending: dr ≤ prev month end */
     const fromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
       return p && dateNum(p) <= prevEndNum;
     });
 
-    /* Step 2 — CNum: only entries within prev month
-       May 2026 special case → use dreg in June 2026 only
-       All other months      → use dreg (date of registration) */
     const isMay2026 = prevMM === 5 && prevYYYY === 2026;
 
     const fromCnum = allCnum.filter(r => {
       if (isMay2026) {
-        // date of registration in June 2026 only
         const pDreg = parseDateFlex(r.dreg);
         const dregOk = pDreg && pDreg.mm === 6 && pDreg.yyyy === 2026;
-
         return dregOk;
       } else {
-        // All other months: dreg within that specific prev month only
         const p = parseDateFlex(r.dreg);
         return p && p.mm === prevMM && p.yyyy === prevYYYY;
       }
     });
-    /* Step 3 — Deduplicate: skip cnum entries already in pending list */
+
     const seen = new Set(fromPending.map(r => r.cr));
     const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
 
@@ -242,8 +229,6 @@ export default function StatementTab({ db, smap }) {
 
   /* ─────────────────────────────────────────────────────────────
      INSTITUTION (ADDED THIS MONTH)
-     FIR Pending dr in selected MM/YYYY
-     + CNum dr in selected MM/YYYY (deduplicated)
   ───────────────────────────────────────────────────────────── */
   const institutionFirs = useMemo(() => {
     if (!submitted) return [];
@@ -266,7 +251,6 @@ export default function StatementTab({ db, smap }) {
 
   /* ─────────────────────────────────────────────────────────────
      DISPOSAL (FINALIZED THIS MONTH)
-     CNum entries where dreg is within selected MM/YYYY
   ───────────────────────────────────────────────────────────── */
   const disposalCases = useMemo(() => {
     if (!submitted) return [];
@@ -278,14 +262,10 @@ export default function StatementTab({ db, smap }) {
 
   /* ─────────────────────────────────────────────────────────────
      PENDING (THIS MONTH END)
-     All FIRs currently in FIR Pending register (live count)
   ───────────────────────────────────────────────────────────── */
   const totalPending = allFirs.length;
 
   /* ── Derived counts ── */
-  // Special rule: May 2026 prev pending is a fixed constant (1590).
-  // For June 2026 onwards: prevPending = May 2026 constant + (total institutions from June to prev month) - (total disposals from June to prev month)
-  // Each month recalculates independently from the May constant — NOT chained.
   const MAY_2026_CONST = 1590;
   let prevPendingCount = 0;
   let prevPendingFormula = "";
@@ -293,45 +273,32 @@ export default function StatementTab({ db, smap }) {
     prevPendingCount = 0;
     prevPendingFormula = "";
   } else if (mm === 6 && yyyy === 2026) {
-    // Generating June 2026 report -> previous month (May 2026) is fixed
     prevPendingCount = MAY_2026_CONST;
     prevPendingFormula = "May 2026 FIR Pending (fixed constant)";
   } else if (yyyy === 2026 && mm >= 7) {
-    // July 2026 onwards: Use accumulated formula (NOT chained)
-    // prevPending = May2026_const + (all institutions June through prev month) - (all disposals June through prev month)
-    // Institution = FIR Pending DR received + CNUM DR (case number registration)
-    // Disposal = CNUM Dereg (dereg date)
-
-    // Count 1: FIR Pending with dr (date received) from June to prev month
     const instFromPending = allFirs.filter(r => {
       const p = parseDateFlex(r.dr);
       if (!p) return false;
-      // Date in June 2026 through previous month
       if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      if (p.yyyy === 2026 && p.mm < 6) return false;
       return false;
     });
 
-    // Count 2: CNUM with dr (date received) from June to prev month — NOT dreg!
     const instFromCnum = allCnum.filter(r => {
-      const p = parseDateFlex(r.dr);  // ✓ FIXED: was r.dreg, now r.dr (date received)
+      const p = parseDateFlex(r.dr);
       if (!p) return false;
-      // Date in June 2026 through previous month
       if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      if (p.yyyy === 2026 && p.mm < 6) return false;
       return false;
     });
 
-    // Total institution = sum of both (no deduplication needed)
     const totalInstitution = instFromPending.length + instFromCnum.length;
 
-    // Disposal: CNUM with dreg (dereg date) from June to prev month
     const totalDisposal = allCnum.filter(r => {
       const p = parseDateFlex(r.dreg);
       if (!p) return false;
-      // Date in June 2026 through previous month
       if (p.yyyy === 2026 && p.mm >= 6 && p.mm < mm) return true;
-      if (p.yyyy === 2026 && p.mm < 6) return false; // Before June
+      if (p.yyyy === 2026 && p.mm < 6) return false;
       return false;
     }).length;
 
@@ -481,8 +448,15 @@ export default function StatementTab({ db, smap }) {
         name: "FIR Institution",
         aoa: [
           ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-          ...institutionSorted.map((r, i) =>
-            [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
+          // ✅ FIX: use fallback fields for cnum-sourced records (.fn/.sta instead of .cr/.stLb)
+          ...institutionSorted.map((r, i) => [
+            i + 1,
+            r.cr || r.fn || "",
+            r.firYr || firYear(r.fn) || "",
+            r.stLb || r.sta || "",
+            r.sec || "",
+            r.dr || "",
+          ]),
         ],
       },
       {
@@ -555,7 +529,7 @@ export default function StatementTab({ db, smap }) {
         <div className="ctitle">📄 Monthly FIR Statement</div>
         <div className="frow" style={{ alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
 
-          {/* Month select — hide Jan–Apr when year is 2026 */}
+          {/* Month select — hide Jan–May when year is 2026 */}
           <div className="fg">
             <label className="lbl">Month</label>
             <select className="inp" value={selMonth}
@@ -580,7 +554,6 @@ export default function StatementTab({ db, smap }) {
               onChange={e => {
                 const newYear = e.target.value;
                 setSelYear(newYear);
-                /* If switching to 2026 and current month < May, snap to May */
                 if (parseInt(newYear, 10) === MIN_YEAR && parseInt(selMonth, 10) < MIN_MONTH) {
                   setSelMonth(pad2(MIN_MONTH));
                 }
@@ -679,8 +652,15 @@ export default function StatementTab({ db, smap }) {
                     name: "Institution",
                     aoa: [
                       ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-                      ...institutionSorted.map((r, i) =>
-                        [i + 1, r.cr, r.firYr || "", r.stLb, r.sec || "", r.dr || ""]),
+                      // ✅ FIX: use fallback fields for cnum-sourced records (.fn/.sta instead of .cr/.stLb)
+                      ...institutionSorted.map((r, i) => [
+                        i + 1,
+                        r.cr || r.fn || "",
+                        r.firYr || firYear(r.fn) || "",
+                        r.stLb || r.sta || "",
+                        r.sec || "",
+                        r.dr || "",
+                      ]),
                     ],
                   }])}>⬇ Excel</button>
               </div>
