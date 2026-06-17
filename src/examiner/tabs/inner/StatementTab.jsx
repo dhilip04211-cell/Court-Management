@@ -244,7 +244,16 @@ export default function StatementTab({ db, smap }) {
     });
 
     const seen = new Set(fromPending.map(r => r.cr));
-    const extra = fromCnum.filter(r => r.fn && !seen.has(r.fn));
+    // Normalise cnum records to same shape as FIR pending records
+    // so web view AND export both read identical fields (cr, stLb, firYr)
+    const extra = fromCnum
+      .filter(r => r.fn && !seen.has(r.fn))
+      .map(r => ({
+        ...r,
+        cr:    r.fn  || "",
+        stLb:  r.sta || "",
+        firYr: firYear(r.fn) || "",
+      }));
 
     return [...fromPending, ...extra];
   }, [allFirs, allCnum, mm, yyyy, submitted]);
@@ -448,14 +457,13 @@ export default function StatementTab({ db, smap }) {
         name: "FIR Institution",
         aoa: [
           ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-          // ✅ FIX: use fallback fields for cnum-sourced records (.fn/.sta instead of .cr/.stLb)
           ...institutionSorted.map((r, i) => [
             i + 1,
-            r.cr || r.fn || "",
-            r.firYr || firYear(r.fn) || "",
-            r.stLb || r.sta || "",
-            r.sec || "",
-            r.dr || "",
+            r.cr    || "",
+            r.firYr || "",
+            r.stLb  || "",
+            r.sec   || "",
+            r.dr    || "",
           ]),
         ],
       },
@@ -652,14 +660,13 @@ export default function StatementTab({ db, smap }) {
                     name: "Institution",
                     aoa: [
                       ["Sl", "CR No.", "Year", "Station", "Section U/s", "Date Received"],
-                      // ✅ FIX: use fallback fields for cnum-sourced records (.fn/.sta instead of .cr/.stLb)
                       ...institutionSorted.map((r, i) => [
                         i + 1,
-                        r.cr || r.fn || "",
-                        r.firYr || firYear(r.fn) || "",
-                        r.stLb || r.sta || "",
-                        r.sec || "",
-                        r.dr || "",
+                        r.cr    || "",
+                        r.firYr || "",
+                        r.stLb  || "",
+                        r.sec   || "",
+                        r.dr    || "",
                       ]),
                     ],
                   }])}>⬇ Excel</button>
